@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 #
 # Author:: Steven Murawski (<steven.murawski@gmail.com>)
 #
@@ -45,7 +44,6 @@ module Kitchen
 
       def create_sandbox
         super
-
       end
 
       def prepare_command

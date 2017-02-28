@@ -1,23 +1,21 @@
-# -*- encoding: utf-8 -*-
+require "bundler/gem_tasks"
 
-require 'bundler/gem_tasks'
-
-require 'rake/testtask'
+require "rake/testtask"
 Rake::TestTask.new(:unit) do |t|
-  t.libs.push 'lib'
-  t.test_files = FileList['spec/**/*_spec.rb']
+  t.libs.push "lib"
+  t.test_files = FileList["spec/**/*_spec.rb"]
   t.verbose = true
 end
 
-desc 'Run all test suites'
+desc "Run all test suites"
 task test: [:unit]
 
-desc 'Display LOC stats'
+desc "Display LOC stats"
 task :stats do
   puts "\n## Production Code Stats"
-  sh 'countloc -r lib'
+  sh "countloc -r lib"
   puts "\n## Test Code Stats"
-  sh 'countloc -r spec'
+  sh "countloc -r spec"
 end
 
 begin
@@ -30,8 +28,7 @@ rescue LoadError
   puts "chefstyle is not available.  gem install chefstyle to do style checking."
 end
 
-desc 'Run all quality tasks'
+desc "Run all quality tasks"
 task quality: [:style, :stats]
-
 
 task default: [:test, :quality]
