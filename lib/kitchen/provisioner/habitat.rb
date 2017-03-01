@@ -18,16 +18,26 @@ module Kitchen
 
       default_config :depot_url, nil
       default_config :hab_sup, "core/hab-sup"
+
+      # hab-sup manager options
+      default_config :hab_sup_listen_http, nil
+      default_config :hab_sup_listen_gossip, nil
+
+      # hab-sup service options
+      #default_config :hab_sup_
       default_config :package_origin, "core"
       default_config :package_name do |provisioner|
         provisioner.instance.suite.name
       end
+
+      default_config :user_toml_path
 
       def install_command
         if instance.platform == "windows"
           raise "Need to fill in some implementation here."
         else
           wrap_shell_code <<-BASH
+          #{export_hab_orgin}
           if command -v hab >/dev/null 2>&1
           then
             echo "Habitat CLI already installed."
@@ -44,12 +54,15 @@ module Kitchen
 
       def create_sandbox
         super
+        copy_results_to_sandbox
       end
 
       def prepare_command
         wrap_shell_code <<-EOH
-          sudo hab pkg install #{config[:hab_sup]}
-          sudo hab pkg binlink #{config[:hab_sup]} hab-sup
+          #{export_hab_origin}
+          #{install_supervisor_command}
+          #{binlink_supervisor_command}
+          #{install_service_package}
           EOH
       end
 
@@ -62,13 +75,45 @@ module Kitchen
             echo "Removing dead session."
             sudo screen -wipe > /dev/null
         fi
-        sudo screen -mdS \"#{clean_package_name}\" hab-sup start #{package_ident}
+        #{export_hab_orgin}
+        sudo screen -mdS \"#{clean_package_name}\" hab-sup start #{package_ident} #{supervisor_options}
         RUN
+
         info("Running #{package_ident}.")
         wrap_shell_code run
       end
 
       private
+
+      def copy_results_to_sandbox
+        FileUtils.mkdir_p(File.join(sandbox_path, "results/"))
+        FileUtils.cp(
+          File.join(File.dirname(__FILE__), ""),
+          File.join(sandbox_path, ""),
+          preserve: true
+        )
+      end
+
+      def install_service_package 
+        ""
+      end
+
+      def export_hab_orgin
+        return if config[:depot_url].nil?
+        "export HAB_ORIGIN=#{config[:depot_url]}"
+      end
+
+      def install_supervisor_command
+        "sudo hab pkg install #{config[:hab_sup]}"
+      end
+
+      def binlink_supervisor_command
+        "sudo hab pkg binlink #{config[:hab_sup]} hab-sup"
+      end
+
+      def archive_name_to_package_ident(filename)
+        filename
+      end
 
       def package_ident
         @pkg_ident ||= "#{config[:package_origin]}/#{config[:package_name]}"
@@ -76,6 +121,13 @@ module Kitchen
 
       def clean_package_name
         @clean_name ||= "#{config[:package_origin]}-#{config[:package_name]}"
+      end
+
+      def supervisor_options
+        options = "#{'--listen-gossip' + config[:hab_sup_listen_gossip] unless config[:hab_sup_listen_gossip].nil?} "  \
+        "#{'--listen-http' + config[:hab_sup_listen_http] unless config[:hab_sup_listen_http].nil?} "  \
+        ""
+        options.strip
       end
     end
   end
