@@ -106,11 +106,11 @@ module Kitchen
       def run_command
         run = <<-RUN
         #{clean_up_screen_sessions}
+        #{clean_up_previous_supervisor}
         #{export_hab_origin}
         echo "Running #{package_ident}."
 
-        #{run_package_in_background}
-        sleep 5
+        #{run_package_in_background}        
         RUN
 
         wrap_shell_code run
@@ -131,11 +131,24 @@ module Kitchen
         CLEAN
       end
 
+      def clean_up_previous_supervisor 
+        return if config[:use_screen]
+        <<-EOH
+        if [ -f "run.pid" ]; then
+          kill -9 `cat run.pid`
+        fi
+        EOH
+      end
+
       def run_package_in_background
         if config[:use_screen]
           "sudo screen -mdS \"#{clean_package_name}\" hab-sup start #{package_ident} #{supervisor_options}"
         else
-          "nohup sudo hab-sup start #{package_ident} #{supervisor_options} & echo $! > run.pid"
+          <<-RUN
+          nohup sudo hab-sup start #{package_ident} #{supervisor_options} & echo $! > run.pid"
+          sleep 5
+          cat nohup.out
+          RUN
         end
       end
 
