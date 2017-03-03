@@ -236,8 +236,8 @@ module Kitchen
         "#{'--listen-http ' + config[:hab_sup_listen_http] unless config[:hab_sup_listen_http].nil?} "  \
         "#{'--config-from ' + File.join(config[:root_path], 'config/') if config[:override_package_config]} "
         options.strip!
-        options += config[:hab_sup_bind].map { |b| "--bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
-        options += config[:hab_sup_peer].map { |p| "--peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
+        options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
+        options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
         options
       end
     end
