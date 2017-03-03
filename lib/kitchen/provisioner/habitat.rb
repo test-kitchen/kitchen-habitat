@@ -135,7 +135,7 @@ module Kitchen
         return if config[:use_screen]
         <<-EOH
         if [ -f "run.pid" ]; then
-          kill -9 `cat run.pid`
+          kill -9 "$(cat run.pid)" > /dev/null
         fi
         EOH
       end
@@ -145,7 +145,7 @@ module Kitchen
           "sudo screen -mdS \"#{clean_package_name}\" hab-sup start #{package_ident} #{supervisor_options}"
         else
           <<-RUN
-          nohup sudo hab-sup start #{package_ident} #{supervisor_options} & echo $! > run.pid"
+          nohup sudo hab-sup start #{package_ident} #{supervisor_options} & echo $! > run.pid
           sleep 5
           cat nohup.out
           RUN
