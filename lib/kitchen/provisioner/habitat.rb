@@ -28,6 +28,7 @@ module Kitchen
       default_config :hab_sup_listen_gossip, nil
       default_config :hab_sup_peer, []
       default_config :hab_sup_bind, []
+      default_config :hab_sup_group, nil
 
       # hab-sup service options
       default_config :artifact_name, nil
@@ -37,6 +38,9 @@ module Kitchen
       end
       default_config :package_version, nil
       default_config :package_timestamp, nil
+      default_config :service_topology, nil
+      default_config :service_update_strategy, nil
+
 
       # local stuffs to copy
       default_config :results_directory, nil
@@ -145,7 +149,7 @@ module Kitchen
         else
           <<-RUN
           [ -f ./run.pid ] && rm -f run.pid
-          [ -f ./nohup.out ] && rm -f nohup.out 
+          [ -f ./nohup.out ] && rm -f nohup.out
           nohup sudo hab-sup start #{package_ident} #{supervisor_options} & echo $! > run.pid
           sleep 5
           [ -f ./nohup.out ] && cat nohup.out || (echo "Failed to start the supervisor." && exit 1)
@@ -246,12 +250,16 @@ module Kitchen
       end
 
       def supervisor_options
-        options = "#{'--listen-gossip ' + config[:hab_sup_listen_gossip] unless config[:hab_sup_listen_gossip].nil?} "  \
-        "#{'--listen-http ' + config[:hab_sup_listen_http] unless config[:hab_sup_listen_http].nil?} "  \
-        "#{'--config-from ' + File.join(config[:root_path], 'config/') if config[:override_package_config]} "
-        options.strip!
+        options = "" 
+        options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
+        options += " --listen-http #{config[:hab_sup_listen_http]}" unless config[:hab_sup_listen_http].nil?}
+        options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]}
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
+        options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
+        options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
+        options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
+
         options
       end
     end

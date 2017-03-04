@@ -42,6 +42,9 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `hab_sup_listen_gossip`
   * Port for the supervisor's gossip communication
   * Defaults to `nil`
+* `hab_sup_group`
+  * Service group for the supervisor to belong do.
+  * Default is `default`
 
 ### Package Settings
 
@@ -66,9 +69,15 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `package_timestamp`
   * Package timestamp of the package to be run.
   * Defaults to `nil` or if `artifact_name` is supplied, the `package_timestamp` will be parsed from the filename of the hart file.
+* `service_topology`
+  * The topology for the service to run in.  Valid values are `nil`, `standalone`, `leader`
+  * Defaults to `nil` which is `standalone`
+* `service_update_strategy`
+  * Describes how package updates are to be applied.  Valid values are `nil`, `at-once`, `rolling`.
+  * Default is `nil`, which does not check for package updates.
 * `config_directory`
   * Directory containing a user.toml or/and a default.toml, hooks, and configuration files to be passed to the service under test.
-  * Default to `nil`
+  * Defaults to `nil`
 * `override_package_config`
   * Tell the supervisor to the the configuration files and hooks from `config_directory` instead of what was packaged with the service.  (Uses `--config-from` via the `hab-sup` CLI.)
 * `user_toml_name`
