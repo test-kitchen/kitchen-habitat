@@ -41,7 +41,6 @@ module Kitchen
       default_config :service_topology, nil
       default_config :service_update_strategy, nil
 
-
       # local stuffs to copy
       default_config :results_directory, nil
       default_config :config_directory, nil
@@ -250,10 +249,9 @@ module Kitchen
       end
 
       def supervisor_options
-        options = "" 
+        options = ""
         options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
-        options += " --listen-http #{config[:hab_sup_listen_http]}" unless config[:hab_sup_listen_http].nil?}
-        options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]}
+        options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
