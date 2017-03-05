@@ -56,7 +56,7 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
   * Defaults to `nil`
 * `results_directory`
   * Directory (relative to the location of the .kitchen.yml) containing package artifacts (harts) to copy to the remote system
-  * Defaults to checking the local directory for a `results` directory, then its parent (`..\results`) and grandparent (`..\..\results`), which should accomodate most studio layouts.
+  * Defaults to checking the local directory for a `results` directory, then its parent (`../results`) and grandparent (`../../results`), which should accomodate most studio layouts.
 * `package_origin`
   * Origin for the package to run.
   * Defaults to `core`, or, if `artifact_name` is supplied, the `package_origin` will be parsed from the filename of the hart file.
