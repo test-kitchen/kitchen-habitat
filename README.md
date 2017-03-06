@@ -28,9 +28,9 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `hab_sup_version`
   * Version number of `hab-sup` to run
   * Defaults to `nil`, or, if `hab_sup_artifact_name` is supplied, the `hab_sup_version` will be parsed from the filename of the hart file.
-* `hab_sup_timestamp`
-  * Timestamp of the `hab-sup` package to run
-  * Defaults to `nil`, or, if `hab_sup_artifact_name` is supplied, the `hab_sup_timestamp` will be parsed from the filename of the hart file.
+* `hab_sup_release`
+  * Release of the `hab-sup` package to run
+  * Defaults to `nil`, or, if `hab_sup_artifact_name` is supplied, the `hab_sup_release` will be parsed from the filename of the hart file.
 * `hab_sup_artifact_name`
   * Artifact package name for a custom supervisor to run
   * Used to upload and test a local supervisor.
@@ -66,9 +66,9 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `package_version`
   * Package version of the package to be run.
   * Defaults to `nil` or if `artifact_name` is supplied, the `package_version` will be parsed from the filename of the hart file.
-* `package_timestamp`
-  * Package timestamp of the package to be run.
-  * Defaults to `nil` or if `artifact_name` is supplied, the `package_timestamp` will be parsed from the filename of the hart file.
+* `package_releae`
+  * Package release of the package to be run.
+  * Defaults to `nil` or if `artifact_name` is supplied, the `package_release` will be parsed from the filename of the hart file.
 * `service_topology`
   * The topology for the service to run in.  Valid values are `nil`, `standalone`, `leader`
   * Defaults to `nil` which is `standalone`
