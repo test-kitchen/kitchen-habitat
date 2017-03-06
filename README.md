@@ -7,7 +7,7 @@ A Test Kitchen Provisioner for [Habitat](https://habitat.sh)
 
 
 ## Installation & Setup
-You'll need the test-kitchen & kitchen-habitat gems installed in your system, along with kitchen-vagrant or some ther suitable driver for test-kitchen. 
+You'll need the test-kitchen & kitchen-habitat gems installed in your system, along with kitchen-vagrant or some other suitable driver for test-kitchen. 
 
 ## Configuration Settings
 
