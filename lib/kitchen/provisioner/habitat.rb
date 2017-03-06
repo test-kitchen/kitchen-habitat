@@ -20,7 +20,7 @@ module Kitchen
       default_config :hab_sup_origin, "core"
       default_config :hab_sup_name, "hab-sup"
       default_config :hab_sup_version, nil
-      default_config :hab_sup_timestamp, nil
+      default_config :hab_sup_release, nil
       default_config :hab_sup_artifact_name, nil
 
       # hab-sup manager options
@@ -37,7 +37,7 @@ module Kitchen
         provisioner.instance.suite.name
       end
       default_config :package_version, nil
-      default_config :package_timestamp, nil
+      default_config :package_release, nil
       default_config :service_topology, nil
       default_config :service_update_strategy, nil
 
@@ -56,7 +56,7 @@ module Kitchen
           config[:hab_sup_origin] = ident["origin"]
           config[:hab_sup_name] = ident["name"]
           config[:hab_sup_version] = ident["version"]
-          config[:hab_sup_timestamp] = ident["timestamp"]
+          config[:hab_sup_release] = ident["release"]
         end
 
         unless config[:artifact_name].nil?
@@ -64,7 +64,7 @@ module Kitchen
           config[:package_origin] = ident["origin"]
           config[:package_name] = ident["name"]
           config[:package_version] = ident["version"]
-          config[:package_timestamp] = ident["timestamp"]
+          config[:package_release] = ident["release"]
         end
         super(instance)
       end
@@ -225,14 +225,14 @@ module Kitchen
       end
 
       def artifact_name_to_package_ident_regex
-        /(?<origin>\w+)-(?<name>.*)-(?<version>(\d+)?(\.\d+)?(\.\d+)?(\.\d+)?)-(?<timestamp>\d+)-(?<target>.*)\.hart$/
+        /(?<origin>\w+)-(?<name>.*)-(?<version>(\d+)?(\.\d+)?(\.\d+)?(\.\d+)?)-(?<release>\d+)-(?<target>.*)\.hart$/
       end
 
       def hab_sup_ident
         ident = "#{config[:hab_sup_origin]}/" \
                 "#{config[:hab_sup_name]}/" \
                 "#{config[:hab_sup_version]}/" \
-                "#{config[:hab_sup_timestamp]}".chomp("/").chomp("/")
+                "#{config[:hab_sup_release]}".chomp("/").chomp("/")
         @sup_ident ||= ident
       end
 
@@ -240,7 +240,7 @@ module Kitchen
         ident = "#{config[:package_origin]}/" \
                 "#{config[:package_name]}/" \
                 "#{config[:package_version]}/" \
-                "#{config[:package_timestamp]}".chomp("/").chomp("/")
+                "#{config[:package_release]}".chomp("/").chomp("/")
         @pkg_ident ||= ident
       end
 
