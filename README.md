@@ -91,8 +91,6 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 provisioner:
   - name: habitat
     hab_sup: core/hab/0.16.0
-    
-
-suite:
-  - name: core/redis
+    package_origin: core
+    package_name: redis
 ```
