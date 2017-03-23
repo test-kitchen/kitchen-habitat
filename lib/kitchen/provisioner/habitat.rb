@@ -214,7 +214,6 @@ module Kitchen
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
         <<-EOH
-          sudo ls /tmp/kitchen
           sudo mkdir -p /hab/svc/#{config[:package_name]}
           sudo cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/user.toml
         EOH
