@@ -66,7 +66,7 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `package_version`
   * Package version of the package to be run.
   * Defaults to `nil` or if `artifact_name` is supplied, the `package_version` will be parsed from the filename of the hart file.
-* `package_releae`
+* `package_release`
   * Package release of the package to be run.
   * Defaults to `nil` or if `artifact_name` is supplied, the `package_release` will be parsed from the filename of the hart file.
 * `service_topology`
@@ -88,9 +88,18 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 ## Example 
 
 ```yaml
+driver:
+  name: vagrant
+
 provisioner:
-  - name: habitat
-    hab_sup: core/hab/0.16.0
-    package_origin: core
-    package_name: redis
+  name: habitat
+  hab_sup: core/hab/0.16.0
+  package_origin: core
+  package_name: redis
+
+platforms:
+  - name: ubuntu-16.04
+
+suites:
+  - name: default
 ```
