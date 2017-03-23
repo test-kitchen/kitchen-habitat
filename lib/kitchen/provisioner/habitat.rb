@@ -192,6 +192,7 @@ module Kitchen
 
       def copy_user_toml_to_sandbox
         return if config[:config_directory].nil?
+        return unless File.exist?(full_user_toml_path)
         FileUtils.mkdir_p(File.join(sandbox_path, "config"))
         FileUtils.cp(full_user_toml_path, File.join(sandbox_path, "config/user.toml"))
       end
