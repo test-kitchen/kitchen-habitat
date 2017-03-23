@@ -51,6 +51,12 @@ module Kitchen
       default_config :use_screen, false
 
       def finalize_config!(instance)
+
+        # Check to see if a package ident was specified for package name and be helpful
+        unless (config[:package_name] =~ /\//).nil?
+          config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split('/')
+        end
+
         unless config[:hab_sup_artifact_name].nil?
           ident = artifact_name_to_package_ident_regex.match(config[:hab_sup_artifact_name])
           config[:hab_sup_origin] = ident["origin"]
@@ -70,23 +76,20 @@ module Kitchen
       end
 
       def install_command
-        if instance.platform == "windows"
-          raise "Need to fill in some implementation here."
+        raise 'Need to fill in some implementation here.' if instance.platform == 'windows'
+        wrap_shell_code <<-BASH
+        #{export_hab_origin}
+        if command -v hab >/dev/null 2>&1
+        then
+          echo "Habitat CLI already installed."
         else
-          wrap_shell_code <<-BASH
-          #{export_hab_origin}
-          if command -v hab >/dev/null 2>&1
-          then
-            echo "Habitat CLI already installed."
-          else
-            curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo bash
-          fi
-          BASH
-        end
+          curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo bash
+        fi
+        BASH
       end
 
       def init_command
-        wrap_shell_code "id -u hab >/dev/null 2>&1 || sudo useradd hab >/dev/null 2>&1"
+        wrap_shell_code 'id -u hab >/dev/null 2>&1 || sudo useradd hab >/dev/null 2>&1'
       end
 
       def create_sandbox
@@ -190,7 +193,7 @@ module Kitchen
       def copy_user_toml_to_sandbox
         return if config[:config_directory].nil?
         FileUtils.mkdir_p(File.join(sandbox_path, "config"))
-        FileUtils.cp_r(File.join(config[:kitchen_root], config[:config_directory]), File.join(sandbox_path, "config"))
+        FileUtils.cp(full_user_toml_path, File.join(sandbox_path, "config/user.toml"))
       end
 
       def install_service_package
@@ -200,7 +203,10 @@ module Kitchen
 
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
-        "cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/"
+        <<-EOH
+          sudo mkdir -p /hab/svc/#{config[:package_name]}
+          sudo cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/user.toml
+        EOH
       end
 
       def remove_previous_user_toml
