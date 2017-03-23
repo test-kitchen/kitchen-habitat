@@ -31,6 +31,7 @@ module Kitchen
       default_config :hab_sup_group, nil
 
       # hab-sup service options
+      default_config :install_latest_artifact, false
       default_config :artifact_name, nil
       default_config :package_origin, "core"
       default_config :package_name do |provisioner|
@@ -51,10 +52,9 @@ module Kitchen
       default_config :use_screen, false
 
       def finalize_config!(instance)
-
         # Check to see if a package ident was specified for package name and be helpful
         unless (config[:package_name] =~ /\//).nil?
-          config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split('/')
+          config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split("/")
         end
 
         unless config[:hab_sup_artifact_name].nil?
@@ -76,7 +76,7 @@ module Kitchen
       end
 
       def install_command
-        raise 'Need to fill in some implementation here.' if instance.platform == 'windows'
+        raise "Need to fill in some implementation here." if instance.platform == "windows"
         wrap_shell_code <<-BASH
         #{export_hab_origin}
         if command -v hab >/dev/null 2>&1
@@ -91,7 +91,7 @@ module Kitchen
       def init_command
         wrap_shell_code <<-EOH
           id -u hab >/dev/null 2>&1 || sudo useradd hab >/dev/null 2>&1
-          mkdir -p /tmp/kitchen/results
+          rm -rf /tmp/kitchen/results
           mkdir -p /tmp/kitchen/config
         EOH
       end
@@ -185,7 +185,7 @@ module Kitchen
         FileUtils.mkdir_p(File.join(sandbox_path, "results"))
         FileUtils.cp_r(
           results_dir,
-          File.join(sandbox_path, "results"),
+          sandbox_path,
           preserve: true
         )
       end
@@ -207,8 +207,28 @@ module Kitchen
       end
 
       def install_service_package
-        return if config[:artifact_name].nil?
-        "sudo hab pkg install #{File.join(File.join(config[:root_path], 'results'), config[:artifact_name])}"
+        return unless config[:install_latest_artifact] || !config[:artifact_name].nil?
+
+        artifact_name = ""
+        if config[:install_latest_artifact]
+          artifact_name = latest_artifact_name
+        elsif !config[:install_latest_artifact] && !config[:artifact_name].nil?
+          artifact_name = config[:artifact_name]
+        else
+          return
+        end
+
+        artifact_path = File.join(File.join(config[:root_path], "results"), artifact_name)
+        "sudo hab pkg install #{File.join(File.join(config[:root_path], 'results'), artifact_name)}"
+      end
+
+      def latest_artifact_name
+        results_dir = resolve_results_directory
+        return if results_dir.nil?
+
+        artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
+
+        File.basename(artifact_path)
       end
 
       def copy_user_toml_to_service_directory

@@ -7,7 +7,7 @@ A Test Kitchen Provisioner for [Habitat](https://habitat.sh)
 
 
 ## Installation & Setup
-You'll need the test-kitchen & kitchen-habitat gems installed in your system, along with kitchen-vagrant or some other suitable driver for test-kitchen. 
+You'll need the test-kitchen & kitchen-habitat gems installed in your system, along with kitchen-vagrant or some other suitable driver for test-kitchen.
 
 ## Configuration Settings
 
@@ -34,7 +34,7 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `hab_sup_artifact_name`
   * Artifact package name for a custom supervisor to run
   * Used to upload and test a local supervisor.
-  * Package should be located in the `results_directory` 
+  * Package should be located in the `results_directory`
   * Defaults to `nil
 * `hab_sup_listen_http`
   * Port for the supervisor's sidecar to listen on.
@@ -83,9 +83,13 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `user_toml_name`
   * Name of the file to be used as the user.toml for the service under test.
   * Defaults to `user.toml`
+* `install_latest_artifact`
+  * Choose to install latest artifact.
+  * Must specify `artifact_name` or `package_origin` and `package_name`
+  * `package_version` and `package_release` will be ignored
+  * Defaults to `false`
 
-
-## Example 
+## Example
 
 ```yaml
 driver:
