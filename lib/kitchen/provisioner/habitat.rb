@@ -89,7 +89,11 @@ module Kitchen
       end
 
       def init_command
-        wrap_shell_code 'id -u hab >/dev/null 2>&1 || sudo useradd hab >/dev/null 2>&1'
+        wrap_shell_code <<-EOH
+          id -u hab >/dev/null 2>&1 || sudo useradd hab >/dev/null 2>&1
+          mkdir -p /tmp/kitchen/results
+          mkdir -p /tmp/kitchen/config
+        EOH
       end
 
       def create_sandbox
@@ -190,11 +194,16 @@ module Kitchen
         File.join(File.join(config[:kitchen_root], config[:config_directory]), config[:user_toml_name])
       end
 
+      def sandbox_user_toml_path
+        File.join(File.join(sandbox_path, "config"), "user.toml")
+      end
+
       def copy_user_toml_to_sandbox
         return if config[:config_directory].nil?
         return unless File.exist?(full_user_toml_path)
         FileUtils.mkdir_p(File.join(sandbox_path, "config"))
-        FileUtils.cp(full_user_toml_path, File.join(sandbox_path, "config/user.toml"))
+        debug("Copying user.toml from #{full_user_toml_path} to #{sandbox_user_toml_path}")
+        FileUtils.cp(full_user_toml_path, sandbox_user_toml_path)
       end
 
       def install_service_package
@@ -205,6 +214,7 @@ module Kitchen
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
         <<-EOH
+          sudo ls /tmp/kitchen
           sudo mkdir -p /hab/svc/#{config[:package_name]}
           sudo cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/user.toml
         EOH
