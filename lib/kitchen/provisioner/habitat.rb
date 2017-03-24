@@ -34,9 +34,7 @@ module Kitchen
       default_config :install_latest_artifact, false
       default_config :artifact_name, nil
       default_config :package_origin, "core"
-      default_config :package_name do |provisioner|
-        provisioner.instance.suite.name
-      end
+      default_config :package_name
       default_config :package_version, nil
       default_config :package_release, nil
       default_config :service_topology, nil
@@ -53,7 +51,7 @@ module Kitchen
 
       def finalize_config!(instance)
         # Check to see if a package ident was specified for package name and be helpful
-        unless (config[:package_name] =~ /\//).nil?
+        unless  config[:package_name].nil? || (config[:package_name] =~ /\//).nil?
           config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split("/")
         end
 
@@ -91,8 +89,9 @@ module Kitchen
       def init_command
         wrap_shell_code <<-EOH
           id -u hab >/dev/null 2>&1 || sudo useradd hab >/dev/null 2>&1
-          rm -rf /tmp/kitchen/results
-          mkdir -p /tmp/kitchen/config
+          rm -rf /tmp/kitchen
+          mkdir -p /tmp/kitchen/results
+          #{'mkdir -p /tmp/kitchen/config' unless config[:override_package_config]}
         EOH
       end
 
@@ -100,6 +99,7 @@ module Kitchen
         super
         copy_results_to_sandbox
         copy_user_toml_to_sandbox
+        copy_package_config_from_override_to_sandbox
       end
 
       def prepare_command
@@ -179,13 +179,23 @@ module Kitchen
         end
       end
 
+      def copy_package_config_from_override_to_sandbox
+        return if config[:config_directory].nil?
+        return unless config[:override_package_config]
+        local_config_dir = File.join(config[:kitchen_root], config[:config_directory])
+        return unless Dir.exist?(local_config_dir)
+
+        sandbox_config_dir = File.join(sandbox_path, "config")
+        FileUtils.copy_entry(local_config_dir, sandbox_config_dir)
+      end
+
       def copy_results_to_sandbox
         results_dir = resolve_results_directory
         return if results_dir.nil?
         FileUtils.mkdir_p(File.join(sandbox_path, "results"))
-        FileUtils.cp_r(
-          results_dir,
-          sandbox_path,
+        FileUtils.cp(
+          File.join(results_dir, config[:install_latest_artifact] ? latest_artifact_name : config[:artifact_name]),
+          File.join(sandbox_path, "results"),
           preserve: true
         )
       end
@@ -219,7 +229,7 @@ module Kitchen
         end
 
         artifact_path = File.join(File.join(config[:root_path], "results"), artifact_name)
-        "sudo hab pkg install #{File.join(File.join(config[:root_path], 'results'), artifact_name)}"
+        "sudo hab pkg install #{artifact_path}"
       end
 
       def latest_artifact_name
