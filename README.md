@@ -45,6 +45,12 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `hab_sup_group`
   * Service group for the supervisor to belong do.
   * Default is `default`
+* `hab_sup_bind`
+  * Service group for the supervisor to bind to.
+  * Default is `[]`
+* `hab_sup_peer`
+  * IP and port (e.g. `192.168.1.86:9010`) of the supervisor of which to connect to join the ring.
+  * Default is `[]`
 
 ### Package Settings
 
@@ -89,7 +95,7 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
   * `package_version` and `package_release` will be ignored
   * Defaults to `false`
 
-## Example
+## Examples
 
 ```yaml
 driver:
@@ -97,7 +103,8 @@ driver:
 
 provisioner:
   name: habitat
-  hab_sup: core/hab/0.16.0
+  hab_sup_origin: core
+  hab_sup_name: sup
   package_origin: core
   package_name: redis
 
