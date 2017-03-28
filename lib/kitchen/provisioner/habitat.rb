@@ -190,6 +190,7 @@ module Kitchen
       end
 
       def copy_results_to_sandbox
+        return if config[:artifact_name].nil? && !config[:install_latest_artifact]
         results_dir = resolve_results_directory
         return if results_dir.nil?
         FileUtils.mkdir_p(File.join(sandbox_path, "results"))
