@@ -97,6 +97,8 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 
 ## Examples
 
+Run the core-redis package
+
 ```yaml
 driver:
   name: vagrant
@@ -113,4 +115,38 @@ platforms:
 
 suites:
   - name: default
+```
+
+Two node elasticsearch and kibana 
+
+```yaml
+driver:
+  name: docker
+
+provisioner:
+  name: habitat
+  hab_sup_origin: core
+  hab_sup_name: sup
+
+platforms:
+  - name: ubuntu-16.04
+
+suites:
+  - name: elasticsearch
+    provisioner:
+      package_origin: core
+      package_name: elasticsearch
+    driver:
+      instance_name: elastic
+  - name: kibana
+    provisioner:
+      package_origin: core
+      package_name: kibana
+      hab_sup_peer:
+        - elastic
+      hab_sup_bind:
+        - elasticsearch:elasticsearch.default
+    driver:
+      instance_name: kibana
+      links: elastic:elastic  
 ```

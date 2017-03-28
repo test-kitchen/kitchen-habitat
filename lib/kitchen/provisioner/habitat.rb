@@ -51,7 +51,7 @@ module Kitchen
 
       def finalize_config!(instance)
         # Check to see if a package ident was specified for package name and be helpful
-        unless  config[:package_name].nil? || (config[:package_name] =~ /\//).nil?
+        unless config[:package_name].nil? || (config[:package_name] =~ /\//).nil?
           config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split("/")
         end
 
