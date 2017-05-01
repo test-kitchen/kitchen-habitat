@@ -15,7 +15,7 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 
 * `depot_url`
   * Target Habitat Depot to use to install packages.
-  * Defaults to `nil` (which will use the default depot settings for the `hab` CLI).
+  * Defaults to `nil` (which will use the default depot settings for the `hab` CLI from ~/.hab/etc/cli.toml).
 
 ### Supervisor Settings
 
@@ -117,7 +117,7 @@ suites:
   - name: default
 ```
 
-Two node elasticsearch and kibana 
+Two node: elasticsearch and kibana 
 
 ```yaml
 driver:
@@ -138,6 +138,7 @@ suites:
       package_name: elasticsearch
     driver:
       instance_name: elastic
+
   - name: kibana
     provisioner:
       package_origin: core
