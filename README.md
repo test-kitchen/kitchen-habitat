@@ -85,7 +85,7 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
   * Directory containing a user.toml or/and a default.toml, hooks, and configuration files to be passed to the service under test.
   * Defaults to `nil`
 * `override_package_config`
-  * Tell the supervisor to the the configuration files and hooks from `config_directory` instead of what was packaged with the service.  (Uses `--config-from` via the `hab-sup` CLI.)
+  * Tell the supervisor to load the the configuration files and hooks from `config_directory` instead of what was packaged with the service.  (Uses `--config-from` via the `hab-sup` CLI.)
 * `user_toml_name`
   * Name of the file to be used as the user.toml for the service under test.
   * Defaults to `user.toml`
