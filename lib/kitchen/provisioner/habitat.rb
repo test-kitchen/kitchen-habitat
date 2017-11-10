@@ -39,6 +39,7 @@ module Kitchen
       default_config :package_release, nil
       default_config :service_topology, nil
       default_config :service_update_strategy, nil
+      default_config :channel, "stable"
 
       # local stuffs to copy
       default_config :results_directory, nil
@@ -151,13 +152,25 @@ module Kitchen
 
       def run_package_in_background
         if config[:use_screen]
-          "sudo screen -mdS \"#{clean_package_name}\" hab-sup start #{package_ident} #{supervisor_options}"
+          "sudo screen -mdS \"#{clean_package_name}\" hab start #{package_ident} #{supervisor_options}"
         else
           <<-RUN
           [ -f ./run.pid ] && rm -f run.pid
           [ -f ./nohup.out ] && rm -f nohup.out
-          nohup sudo hab-sup start #{package_ident} #{supervisor_options} & echo $! > run.pid
-          sleep 5
+          nohup sudo hab sup run & echo $! > run.pid
+
+          until hab svc status
+          do
+            sleep 1
+          done
+
+          sudo hab start #{package_ident} #{supervisor_options}
+          
+          until hab svc status | grep #{package_ident}
+          do
+            sleep 1
+          done
+
           [ -f ./nohup.out ] && cat nohup.out || (echo "Failed to start the supervisor." && exit 1)
           RUN
         end
@@ -304,6 +317,7 @@ module Kitchen
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
         options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
         options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
+        options += " --channel #{config[:channel]}" unless config[:channel].nil?
 
         options
       end
