@@ -146,6 +146,7 @@ module Kitchen
         <<-EOH
         [ -f ./run.pid ] && echo "Removing previous supervisor and unloading package. "
         [ -f ./run.pid ] && sudo hab svc unload #{package_ident}
+        [ -f ./run.pid ] && sleep 5
         [ -f ./run.pid ] && sudo kill $(cat run.pid)
         [ -f ./run.pid ] && sleep 5
         EOH
