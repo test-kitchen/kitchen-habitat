@@ -13,7 +13,7 @@ require 'kitchen/util'
 
 module Kitchen
   module Provisioner
-    class Habitat < Base
+    class HabitatConfig < Base
       kitchen_provisioner_api_version 2
 
       default_config :depot_url, nil
