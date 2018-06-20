@@ -144,7 +144,8 @@ module Kitchen
       def clean_up_previous_supervisor
         return if config[:use_screen]
         <<-EOH
-        [ -f ./run.pid ] && echo "Removing previous supervisor. "
+        [ -f ./run.pid ] && echo "Removing previous supervisor and unloading package. "
+        [ -f ./run.pid ] && sudo hab svc unload #{package_ident}
         [ -f ./run.pid ] && sudo kill $(cat run.pid)
         [ -f ./run.pid ] && sleep 5
         EOH
@@ -157,16 +158,16 @@ module Kitchen
           <<-RUN
           [ -f ./run.pid ] && rm -f run.pid
           [ -f ./nohup.out ] && rm -f nohup.out
-          nohup sudo hab sup run & echo $! > run.pid
+          nohup sudo hab sup run #{supervisor_options} & echo $! > run.pid
 
-          until hab svc status
+          until sudo hab svc status
           do
             sleep 1
           done
 
-          sudo hab start #{package_ident} #{supervisor_options}
-          
-          until hab svc status | grep #{package_ident}
+          sudo hab svc load #{package_ident} #{service_options}
+
+          until sudo hab svc status | grep #{package_ident}
           do
             sleep 1
           done
@@ -314,6 +315,17 @@ module Kitchen
         options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
+        options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
+        options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
+        options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
+        options += " --channel #{config[:channel]}" unless config[:channel].nil?
+
+        options
+      end
+
+      def service_options
+        options = ""
+        options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
         options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
         options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
