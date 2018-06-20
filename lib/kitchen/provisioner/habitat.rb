@@ -243,6 +243,11 @@ module Kitchen
         else
           return
         end
+        parsed_name = artifact_name.split("-")
+        config[:package_origin] = parsed_name[0]
+        config[:package_name] = parsed_name[1]
+        config[:package_version] = parsed_name[2]
+        config[:package_release] = parsed_name[3]
 
         artifact_path = File.join(File.join(config[:root_path], "results"), artifact_name)
         "sudo hab pkg install #{artifact_path}"
@@ -253,6 +258,7 @@ module Kitchen
         return if results_dir.nil?
 
         artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
+
 
         File.basename(artifact_path)
       end
@@ -303,7 +309,7 @@ module Kitchen
                 "#{config[:package_name]}/" \
                 "#{config[:package_version]}/" \
                 "#{config[:package_release]}".chomp("/").chomp("/")
-        @pkg_ident ||= ident
+        @pkg_ident = ident
       end
 
       def clean_package_name
