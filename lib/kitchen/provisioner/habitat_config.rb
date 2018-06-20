@@ -6,19 +6,19 @@
 # Licensed under the MIT License.
 # See LICENSE for more details
 
-require "fileutils"
-require "pathname"
-require "kitchen/provisioner/base"
-require "kitchen/util"
+require 'fileutils'
+require 'pathname'
+require 'kitchen/provisioner/base'
+require 'kitchen/util'
 
 module Kitchen
   module Provisioner
-    class Habitat < Base
+    class HabitatConfig < Base
       kitchen_provisioner_api_version 2
 
       default_config :depot_url, nil
-      default_config :hab_sup_origin, "core"
-      default_config :hab_sup_name, "hab-sup"
+      default_config :hab_sup_origin, 'core'
+      default_config :hab_sup_name, 'hab-sup'
       default_config :hab_sup_version, nil
       default_config :hab_sup_release, nil
       default_config :hab_sup_artifact_name, nil
@@ -33,18 +33,18 @@ module Kitchen
       # hab-sup service options
       default_config :install_latest_artifact, false
       default_config :artifact_name, nil
-      default_config :package_origin, "core"
+      default_config :package_origin, 'core'
       default_config :package_name
       default_config :package_version, nil
       default_config :package_release, nil
       default_config :service_topology, nil
       default_config :service_update_strategy, nil
-      default_config :channel, "stable"
+      default_config :channel, 'stable'
 
       # local stuffs to copy
       default_config :results_directory, nil
       default_config :config_directory, nil
-      default_config :user_toml_name, "user.toml"
+      default_config :user_toml_name, 'user.toml'
       default_config :override_package_config, false
 
       # experimental
@@ -53,23 +53,23 @@ module Kitchen
       def finalize_config!(instance)
         # Check to see if a package ident was specified for package name and be helpful
         unless config[:package_name].nil? || (config[:package_name] =~ /\//).nil?
-          config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split("/")
+          config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split('/')
         end
 
         unless config[:hab_sup_artifact_name].nil?
           ident = artifact_name_to_package_ident_regex.match(config[:hab_sup_artifact_name])
-          config[:hab_sup_origin] = ident["origin"]
-          config[:hab_sup_name] = ident["name"]
-          config[:hab_sup_version] = ident["version"]
-          config[:hab_sup_release] = ident["release"]
+          config[:hab_sup_origin] = ident['origin']
+          config[:hab_sup_name] = ident['name']
+          config[:hab_sup_version] = ident['version']
+          config[:hab_sup_release] = ident['release']
         end
 
         unless config[:artifact_name].nil?
           ident = artifact_name_to_package_ident_regex.match(config[:artifact_name])
-          config[:package_origin] = ident["origin"]
-          config[:package_name] = ident["name"]
-          config[:package_version] = ident["version"]
-          config[:package_release] = ident["release"]
+          config[:package_origin] = ident['origin']
+          config[:package_name] = ident['name']
+          config[:package_version] = ident['version']
+          config[:package_release] = ident['release']
         end
         super(instance)
       end
@@ -120,6 +120,7 @@ module Kitchen
         #{clean_up_screen_sessions}
         #{clean_up_previous_supervisor}
         echo "Running #{package_ident}."
+        sudo hab pkg install #{package_ident}
         #{run_package_in_background}
         RUN
 
@@ -157,16 +158,16 @@ module Kitchen
           <<-RUN
           [ -f ./run.pid ] && rm -f run.pid
           [ -f ./nohup.out ] && rm -f nohup.out
-          nohup sudo hab sup run & echo $! > run.pid
+          nohup sudo hab sup run #{sup_run_options} & echo $! > run.pid
 
-          until hab svc status
+          until sudo hab svc status
           do
             sleep 1
           done
 
-          sudo hab start #{package_ident} #{supervisor_options}
-          
-          until hab svc status | grep #{package_ident}
+          sudo hab svc load #{package_ident} #{supervisor_options}
+
+          until sudo hab svc status | grep #{package_ident}
           do
             sleep 1
           done
@@ -308,12 +309,22 @@ module Kitchen
         @clean_name ||= "#{config[:package_origin]}-#{config[:package_name]}"
       end
 
-      def supervisor_options
-        options = ""
+      def sup_run_options
+        options = ''
         options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
         options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
+
+        options
+      end
+
+      def supervisor_options
+        options = ''
+        options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
+        options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
+        options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
+        # options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
         options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
         options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
