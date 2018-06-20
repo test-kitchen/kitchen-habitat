@@ -2,7 +2,7 @@ $LOAD_PATH.unshift File.expand_path("../lib", __FILE__)
 require "kitchen-habitat/version"
 
 Gem::Specification.new do |s|
-  s.name              = "kitchen-habitat"
+  s.name              = "kitchen-habitat-config"
   s.version           = Kitchen::Habitat::VERSION
   s.authors           = ["Steven Murawski"]
   s.email             = ["smurawski@chef.io"]
