@@ -82,14 +82,14 @@ module Kitchen
         then
           echo "Habitat CLI already installed."
         else
-          curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo bash
+          curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo -E bash
         fi
         BASH
       end
 
       def init_command
         wrap_shell_code <<-EOH
-          id -u hab >/dev/null 2>&1 || sudo useradd hab >/dev/null 2>&1
+          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
           rm -rf /tmp/kitchen
           mkdir -p /tmp/kitchen/results
           #{'mkdir -p /tmp/kitchen/config' unless config[:override_package_config]}
@@ -131,12 +131,12 @@ module Kitchen
       def clean_up_screen_sessions
         return unless config[:use_screen]
         <<-CLEAN
-        if sudo screen -ls | grep -q #{clean_package_name}
+        if sudo -E screen -ls | grep -q #{clean_package_name}
           then
             echo "Killing previous supervisor session."
-            sudo screen -S \"#{clean_package_name}\" -X quit > /dev/null
+            sudo -E screen -S \"#{clean_package_name}\" -X quit > /dev/null
             echo "Removing dead session."
-            sudo screen -wipe > /dev/null
+            sudo -E screen -wipe > /dev/null
         fi
         CLEAN
       end
@@ -144,29 +144,31 @@ module Kitchen
       def clean_up_previous_supervisor
         return if config[:use_screen]
         <<-EOH
-        [ -f ./run.pid ] && echo "Removing previous supervisor. "
-        [ -f ./run.pid ] && sudo kill $(cat run.pid)
+        [ -f ./run.pid ] && echo "Removing previous supervisor and unloading package. "
+        [ -f ./run.pid ] && sudo -E hab svc unload #{package_ident}
+        [ -f ./run.pid ] && sleep 5
+        [ -f ./run.pid ] && sudo -E kill $(cat run.pid)
         [ -f ./run.pid ] && sleep 5
         EOH
       end
 
       def run_package_in_background
         if config[:use_screen]
-          "sudo screen -mdS \"#{clean_package_name}\" hab start #{package_ident} #{supervisor_options}"
+          "sudo -E screen -mdS \"#{clean_package_name}\" hab start #{package_ident} #{supervisor_options}"
         else
           <<-RUN
           [ -f ./run.pid ] && rm -f run.pid
           [ -f ./nohup.out ] && rm -f nohup.out
-          nohup sudo hab sup run & echo $! > run.pid
+          nohup sudo -E hab sup run #{supervisor_options} & echo $! > run.pid
 
-          until hab svc status
+          until sudo -E hab svc status
           do
             sleep 1
           done
 
-          sudo hab start #{package_ident} #{supervisor_options}
-          
-          until hab svc status | grep #{package_ident}
+          sudo -E hab svc load #{package_ident} #{service_options}
+
+          until sudo -E hab svc status | grep #{package_ident}
           do
             sleep 1
           done
@@ -241,9 +243,14 @@ module Kitchen
         else
           return
         end
+        parsed_name = artifact_name.split("-")
+        config[:package_origin] = parsed_name[0]
+        config[:package_name] = parsed_name[1]
+        config[:package_version] = parsed_name[2]
+        config[:package_release] = parsed_name[3]
 
         artifact_path = File.join(File.join(config[:root_path], "results"), artifact_name)
-        "sudo hab pkg install #{artifact_path}"
+        "sudo -E hab pkg install #{artifact_path}"
       end
 
       def latest_artifact_name
@@ -252,21 +259,22 @@ module Kitchen
 
         artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
 
+
         File.basename(artifact_path)
       end
 
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
         <<-EOH
-          sudo mkdir -p /hab/svc/#{config[:package_name]}
-          sudo cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/user.toml
+          sudo -E mkdir -p /hab/svc/#{config[:package_name]}
+          sudo -E cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/user.toml
         EOH
       end
 
       def remove_previous_user_toml
         <<-REMOVE
         if [ -d "/hab/svc/#{config[:package_name]}" ]; then
-          sudo find /hab/svc/#{config[:package_name]} -name user.toml -delete
+          sudo -E find /hab/svc/#{config[:package_name]} -name user.toml -delete
         fi
         REMOVE
       end
@@ -277,11 +285,11 @@ module Kitchen
       end
 
       def install_supervisor_command
-        "sudo hab pkg install #{hab_sup_ident}"
+        "sudo -E hab pkg install #{hab_sup_ident}"
       end
 
       def binlink_supervisor_command
-        "sudo hab pkg binlink #{hab_sup_ident} hab-sup"
+        "sudo -E hab pkg binlink #{hab_sup_ident} hab-sup"
       end
 
       def artifact_name_to_package_ident_regex
@@ -301,7 +309,7 @@ module Kitchen
                 "#{config[:package_name]}/" \
                 "#{config[:package_version]}/" \
                 "#{config[:package_release]}".chomp("/").chomp("/")
-        @pkg_ident ||= ident
+        @pkg_ident = ident
       end
 
       def clean_package_name
@@ -314,6 +322,17 @@ module Kitchen
         options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
+        options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
+        options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
+        options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
+        options += " --channel #{config[:channel]}" unless config[:channel].nil?
+
+        options
+      end
+
+      def service_options
+        options = ""
+        options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
         options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
         options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
