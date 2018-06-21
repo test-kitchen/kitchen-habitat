@@ -26,6 +26,7 @@ module Kitchen
       # hab-sup manager options
       default_config :hab_sup_listen_http, nil
       default_config :hab_sup_listen_gossip, nil
+      default_config :hab_sup_listen_ctl, nil
       default_config :hab_sup_peer, []
       default_config :hab_sup_bind, []
       default_config :hab_sup_group, nil
@@ -318,6 +319,7 @@ module Kitchen
 
       def supervisor_options
         options = ""
+        options += " --listen-ctl #{config[:hab_sup_listen_ctl]}" unless config[:hab_sup_listen_ctl].nil?
         options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
         options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
