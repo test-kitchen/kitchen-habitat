@@ -259,7 +259,6 @@ module Kitchen
 
         artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
 
-
         File.basename(artifact_path)
       end
 
