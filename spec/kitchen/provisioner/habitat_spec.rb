@@ -21,8 +21,6 @@ describe Kitchen::Provisioner::Habitat do
   let(:driver)        { Kitchen::Driver::Dummy.new }
   let(:transport)     { Kitchen::Transport::Dummy.new }
   let(:state_file)    { double("state_file") }
-  # let(:state)         { Hash.new }
-  # let(:env)           { Hash.new }
 
   let(:provisioner_object) { Kitchen::Provisioner::Habitat.new(config) }
 
