@@ -46,4 +46,30 @@ describe Kitchen::Provisioner::Habitat do
   it "driver api_version is 2" do
     expect(provisioner.diagnose_plugin[:api_version]).to eq(2)
   end
+
+  describe "#install_command" do
+    it "generates a valid install script" do
+      install_command = provisioner.send(
+        :install_command
+      )
+      expect(install_command).to eq("sh -c '\nTEST_KITCHEN=\"1\"; export TEST_KITCHEN\n        \n        if command -v hab >/dev/null 2>&1\n        then\n          echo \"Habitat CLI already installed.\"\n        else\n          curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo -E bash\n        fi\n'")
+    end
+  end
+
+  describe "#init_command" do
+    it "generates a valid initialization script" do
+      install_command = provisioner.send(
+        :init_command
+      )
+      expect(install_command).to eq("sh -c '\nTEST_KITCHEN=\"1\"; export TEST_KITCHEN\n          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1\n          rm -rf /tmp/kitchen\n          mkdir -p /tmp/kitchen/results\n          mkdir -p /tmp/kitchen/config\n'")
+    end
+
+    it "removes the config creation line when an override is present" do
+      config[:override_package_config] = true
+      install_command = provisioner.send(
+        :init_command
+      )
+      expect(install_command).to eq("sh -c '\nTEST_KITCHEN=\"1\"; export TEST_KITCHEN\n          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1\n          rm -rf /tmp/kitchen\n          mkdir -p /tmp/kitchen/results\n          \n'")
+    end
+  end
 end
