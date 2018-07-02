@@ -10,8 +10,19 @@ require "kitchen/driver/dummy"
 require "kitchen/transport/dummy"
 require "kitchen/verifier/dummy"
 
-describe Kitchen::Provisioner::Habitat do
+def wrap_command(code, left_pad_length = 10)
+  left_padded_code = code.map do |line|
+    line.rjust(line.length + left_pad_length)
+  end.join("\n")
+  command = "sh -c '\n"
+  command << "TEST_KITCHEN=\"1\"; export TEST_KITCHEN\n"
+  command << "CI=\"true\"; export CI\n" if ENV["CI"]
+  command << "#{left_padded_code}\n"
+  command << "'"
+  command
+end
 
+describe Kitchen::Provisioner::Habitat do
   let(:logged_output) { StringIO.new }
   let(:logger)        { Logger.new(logged_output) }
   let(:config)        { { kitchen_root: "/kroot" } }
@@ -52,16 +63,30 @@ describe Kitchen::Provisioner::Habitat do
       install_command = provisioner.send(
         :install_command
       )
-      expect(install_command).to eq("sh -c '\nTEST_KITCHEN=\"1\"; export TEST_KITCHEN\n        \n        if command -v hab >/dev/null 2>&1\n        then\n          echo \"Habitat CLI already installed.\"\n        else\n          curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo -E bash\n        fi\n'")
+      expected_code = [
+        "",
+        "if command -v hab >/dev/null 2>&1",
+        "then",
+        "  echo \"Habitat CLI already installed.\"",
+        "else",
+        "  curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo -E bash",
+        "fi"
+      ]
+      expect(install_command).to eq(wrap_command(expected_code, 8))
     end
   end
-
   describe "#init_command" do
     it "generates a valid initialization script" do
       install_command = provisioner.send(
         :init_command
       )
-      expect(install_command).to eq("sh -c '\nTEST_KITCHEN=\"1\"; export TEST_KITCHEN\n          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1\n          rm -rf /tmp/kitchen\n          mkdir -p /tmp/kitchen/results\n          mkdir -p /tmp/kitchen/config\n'")
+      expected_code = [
+        "id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1",
+        "rm -rf /tmp/kitchen",
+        "mkdir -p /tmp/kitchen/results",
+        "mkdir -p /tmp/kitchen/config",
+      ]
+      expect(install_command).to eq(wrap_command(expected_code))
     end
 
     it "removes the config creation line when an override is present" do
@@ -69,7 +94,13 @@ describe Kitchen::Provisioner::Habitat do
       install_command = provisioner.send(
         :init_command
       )
-      expect(install_command).to eq("sh -c '\nTEST_KITCHEN=\"1\"; export TEST_KITCHEN\n          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1\n          rm -rf /tmp/kitchen\n          mkdir -p /tmp/kitchen/results\n          \n'")
+      expected_code = [
+        "id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1",
+        "rm -rf /tmp/kitchen",
+        "mkdir -p /tmp/kitchen/results",
+        ""
+      ]
+      expect(install_command).to eq(wrap_command(expected_code))
     end
   end
 end
