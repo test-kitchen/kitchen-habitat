@@ -77,7 +77,7 @@ module Kitchen
       def install_command
         raise "Need to fill in some implementation here." if instance.platform == "windows"
         wrap_shell_code <<-BASH
-        #{export_hab_origin}
+        #{export_hab_bldr_url}
         if command -v hab >/dev/null 2>&1
         then
           echo "Habitat CLI already installed."
@@ -105,7 +105,7 @@ module Kitchen
 
       def prepare_command
         wrap_shell_code <<-EOH
-          #{export_hab_origin}
+          #{export_hab_bldr_url}
           #{install_supervisor_command}
           #{binlink_supervisor_command}
           #{install_service_package}
@@ -116,7 +116,7 @@ module Kitchen
 
       def run_command
         run = <<-RUN
-        #{export_hab_origin}
+        #{export_hab_bldr_url}
         #{clean_up_screen_sessions}
         #{clean_up_previous_supervisor}
         echo "Running #{package_ident}."
@@ -278,9 +278,9 @@ module Kitchen
         REMOVE
       end
 
-      def export_hab_origin
+      def export_hab_bldr_url
         return if config[:depot_url].nil?
-        "export HAB_ORIGIN=#{config[:depot_url]}"
+        "export HAB_BLDR_URL=#{config[:depot_url]}"
       end
 
       def install_supervisor_command
