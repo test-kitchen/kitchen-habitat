@@ -103,4 +103,21 @@ describe Kitchen::Provisioner::Habitat do
       expect(install_command).to eq(wrap_command(expected_code))
     end
   end
+
+  describe "#export_hab_bldr_url" do
+    it "sets the HAB_BLDR_URL env var when config[:depot_url] is set" do
+      config[:depot_url] = "https://bldr.cthulhu.com"
+      bldr_export = provisioner.send(
+        :export_hab_bldr_url
+      )
+      expect(bldr_export).to eq("export HAB_BLDR_URL=https://bldr.cthulhu.com")
+    end
+
+    it "should return nil if config[:depot_url] is not set" do
+      bldr_export = provisioner.send(
+        :export_hab_bldr_url
+      )
+      expect(bldr_export).to eq(nil)
+    end
+  end
 end
