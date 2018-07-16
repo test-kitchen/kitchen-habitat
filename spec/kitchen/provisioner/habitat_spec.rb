@@ -120,4 +120,14 @@ describe Kitchen::Provisioner::Habitat do
       expect(bldr_export).to eq(nil)
     end
   end
+
+  describe "#supervisor_options" do
+    it "sets the --listen-ctl flag when config[:hab_sup_listen_ctl] is set" do
+      config[:hab_sup_listen_ctl] = "0.0.0.0:9632"
+      supervisor_options = provisioner.send(
+        :supervisor_options
+      )
+      expect(supervisor_options).to include("--listen-ctl 0.0.0.0:9632")
+    end
+  end
 end
