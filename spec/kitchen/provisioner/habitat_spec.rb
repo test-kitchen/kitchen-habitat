@@ -129,5 +129,12 @@ describe Kitchen::Provisioner::Habitat do
       )
       expect(supervisor_options).to include("--listen-ctl 0.0.0.0:9632")
     end
+
+    it "doesn't set the --listen-ctl flag when config[:hab_sup_listen_ctl] is unset" do
+      supervisor_options = provisioner.send(
+        :supervisor_options
+      )
+      expect(supervisor_options).not_to include("--listen-ctl 0.0.0.0:9632")
+    end
   end
 end
