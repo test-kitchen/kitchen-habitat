@@ -244,11 +244,11 @@ module Kitchen
         else
           return
         end
-        parsed_name = artifact_name.split("-")
-        config[:package_origin] = parsed_name[0]
-        config[:package_name] = parsed_name[1]
-        config[:package_version] = parsed_name[2]
-        config[:package_release] = parsed_name[3]
+        ident = artifact_name_to_package_ident_regex.match(artifact_name)
+        config[:package_origin] = ident["origin"]
+        config[:package_name] = ident["name"]
+        config[:package_version] = ident["version"]
+        config[:package_release] = ident["release"]
 
         artifact_path = File.join(File.join(config[:root_path], "results"), artifact_name)
         "sudo -E hab pkg install #{artifact_path}"
