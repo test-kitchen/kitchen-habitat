@@ -137,7 +137,7 @@ describe Kitchen::Provisioner::Habitat do
       expect(supervisor_options).not_to include("--listen-ctl 0.0.0.0:9632")
     end
 
-    it "sets the --ring flag when config[:hab_sup_ring] is unset" do
+    it "sets the --ring flag when config[:hab_sup_ring] is set" do
       config[:hab_sup_ring] = "test"
       supervisor_options = provisioner.send(
         :supervisor_options
