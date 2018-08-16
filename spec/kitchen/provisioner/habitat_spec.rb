@@ -23,15 +23,16 @@ def wrap_command(code, left_pad_length = 10)
 end
 
 describe Kitchen::Provisioner::Habitat do
-  let(:logged_output) { StringIO.new }
-  let(:logger)        { Logger.new(logged_output) }
-  let(:config)        { { kitchen_root: "/kroot" } }
-  let(:platform)      { Kitchen::Platform.new(name: "fooos-99") }
-  let(:suite)         { Kitchen::Suite.new(name: "suitey") }
-  let(:verifier)      { Kitchen::Verifier::Dummy.new }
-  let(:driver)        { Kitchen::Driver::Dummy.new }
-  let(:transport)     { Kitchen::Transport::Dummy.new }
-  let(:state_file)    { double("state_file") }
+  let(:logged_output)   { StringIO.new }
+  let(:logger)          { Logger.new(logged_output) }
+  let(:lifecycle_hooks) { Kitchen::LifecycleHooks.new({}) }
+  let(:config)          { { kitchen_root: "/kroot" } }
+  let(:platform)        { Kitchen::Platform.new(name: "fooos-99") }
+  let(:suite)           { Kitchen::Suite.new(name: "suitey") }
+  let(:verifier)        { Kitchen::Verifier::Dummy.new }
+  let(:driver)          { Kitchen::Driver::Dummy.new }
+  let(:transport)       { Kitchen::Transport::Dummy.new }
+  let(:state_file)      { double("state_file") }
 
   let(:provisioner_object) { Kitchen::Provisioner::Habitat.new(config) }
 
@@ -46,6 +47,7 @@ describe Kitchen::Provisioner::Habitat do
       verifier:  verifier,
       driver: driver,
       logger: logger,
+      lifecycle_hooks: lifecycle_hooks,
       suite: suite,
       platform: platform,
       provisioner: provisioner_object,
