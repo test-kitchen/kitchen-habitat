@@ -30,6 +30,7 @@ module Kitchen
       default_config :hab_sup_peer, []
       default_config :hab_sup_bind, []
       default_config :hab_sup_group, nil
+      default_config :hab_sup_ring, nil
 
       # hab-sup service options
       default_config :install_latest_artifact, false
@@ -324,6 +325,7 @@ module Kitchen
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
+        options += " --ring #{config[:hab_sup_ring]}" unless config[:hab_sup_ring].nil?
         options += " --topology #{config[:service_topology]}" unless config[:service_topology].nil?
         options += " --strategy #{config[:service_update_strategy]}" unless config[:service_update_strategy].nil?
         options += " --channel #{config[:channel]}" unless config[:channel].nil?

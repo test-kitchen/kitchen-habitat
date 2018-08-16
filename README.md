@@ -51,6 +51,9 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 * `hab_sup_peer`
   * IP and port (e.g. `192.168.1.86:9010`) of the supervisor of which to connect to join the ring.
   * Default is `[]`
+* `hab_sup_ring`
+  * Ring key name
+  * Default is `nil`
 
 ### Package Settings
 
