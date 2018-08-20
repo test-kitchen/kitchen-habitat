@@ -17,6 +17,7 @@ module Kitchen
       kitchen_provisioner_api_version 2
 
       default_config :depot_url, nil
+      default_config :hab_version, "latest"
       default_config :hab_sup_origin, "core"
       default_config :hab_sup_name, "hab-sup"
       default_config :hab_sup_version, nil
@@ -78,13 +79,17 @@ module Kitchen
 
       def install_command
         raise "Need to fill in some implementation here." if instance.platform == "windows"
+
+        version = "-v #{config[:hab_version]}" unless config[:hab_version].eql?('latest')
+
         wrap_shell_code <<-BASH
         #{export_hab_bldr_url}
         if command -v hab >/dev/null 2>&1
         then
           echo "Habitat CLI already installed."
         else
-          curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo -E bash
+          curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
+          sudo -E bash /tmp/install.sh #{version}
         fi
         BASH
       end
@@ -161,6 +166,7 @@ module Kitchen
           <<-RUN
           [ -f ./run.pid ] && rm -f run.pid
           [ -f ./nohup.out ] && rm -f nohup.out
+
           nohup sudo -E hab sup run #{supervisor_options} & echo $! > run.pid
 
           until sudo -E hab svc status
