@@ -154,6 +154,23 @@ module Kitchen
         EOH
       end
 
+      def sup_run_script
+        <<-SCRIPT
+cat > /tmp/sup-run.sh <<"END"
+#!/bin/bash
+
+while true
+do
+  COUNT=$(ps aux | grep hab | wc -l)
+  if [[ ${COUNT} -lt 2 ]]
+  then
+    sudo -E hab sup run #{supervisor_options} > /home/kitchen/nohup.out & echo $! > /tmp/run.pid
+  fi
+done
+END
+SCRIPT
+      end
+
       def run_package_in_background
         if config[:use_screen]
           "sudo -E screen -mdS \"#{clean_package_name}\" hab start #{package_ident} #{supervisor_options}"
@@ -161,7 +178,12 @@ module Kitchen
           <<-RUN
           [ -f ./run.pid ] && rm -f run.pid
           [ -f ./nohup.out ] && rm -f nohup.out
-          nohup sudo -E hab sup run #{supervisor_options} & echo $! > run.pid
+
+          #{sup_run_script}
+
+          sudo -E chmod +x /tmp/sup-run.sh
+
+          nohup /tmp/sup-run.sh & > sup-run.out
 
           until sudo -E hab svc status
           do
