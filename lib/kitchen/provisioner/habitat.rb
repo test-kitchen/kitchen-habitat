@@ -80,7 +80,7 @@ module Kitchen
       def install_command
         raise "Need to fill in some implementation here." if instance.platform == "windows"
 
-        version = "-v #{config[:hab_version]}" unless config[:hab_version].eql?('latest')
+        version = " -v #{config[:hab_version]}" unless config[:hab_version].eql?('latest')
 
         wrap_shell_code <<-BASH
         #{export_hab_bldr_url}
@@ -89,7 +89,7 @@ module Kitchen
           echo "Habitat CLI already installed."
         else
           curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
-          sudo -E bash /tmp/install.sh #{version}
+          sudo -E bash /tmp/install.sh#{version}
         fi
         BASH
       end
