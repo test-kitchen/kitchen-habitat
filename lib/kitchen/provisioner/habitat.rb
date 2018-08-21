@@ -80,7 +80,7 @@ module Kitchen
       def install_command
         raise "Need to fill in some implementation here." if instance.platform == "windows"
 
-        version = " -v #{config[:hab_version]}" unless config[:hab_version].eql?('latest')
+        version = " -v #{config[:hab_version]}" unless config[:hab_version].eql?("latest")
 
         wrap_shell_code <<-BASH
         #{export_hab_bldr_url}
