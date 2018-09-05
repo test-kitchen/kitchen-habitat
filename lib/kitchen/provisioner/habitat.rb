@@ -164,7 +164,7 @@ do
   COUNT=$(ps aux | grep hab | wc -l)
   if [[ ${COUNT} -lt 2 ]]
   then
-    sudo -E hab sup run #{supervisor_options} > /home/kitchen/nohup.out & echo $! > /tmp/run.pid
+    sudo -E hab sup run #{supervisor_options} > ~/nohup.out & echo $! > /tmp/run.pid
   fi
 done
 END
