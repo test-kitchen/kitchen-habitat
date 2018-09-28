@@ -71,7 +71,8 @@ describe Kitchen::Provisioner::Habitat do
         "then",
         "  echo \"Habitat CLI already installed.\"",
         "else",
-        "  curl 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh' | sudo -E bash",
+        "  curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'",
+        "  sudo -E bash /tmp/install.sh",
         "fi"
       ]
       expect(install_command).to eq(wrap_command(expected_code, 8))
