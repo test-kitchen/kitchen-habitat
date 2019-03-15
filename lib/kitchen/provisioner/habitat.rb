@@ -118,7 +118,7 @@ module Kitchen
           #{install_service_package}
           #{remove_previous_user_toml}
           #{copy_user_toml_to_service_directory}
-          EOH
+        EOH
       end
 
       def run_command
@@ -160,20 +160,20 @@ module Kitchen
       end
 
       def sup_run_script
-        <<-SCRIPT
-cat > /tmp/sup-run.sh <<"END"
-#!/bin/bash
+        <<~SCRIPT
+          cat > /tmp/sup-run.sh <<"END"
+          #!/bin/bash
 
-while true
-do
-  COUNT=$(ps aux | grep hab | wc -l)
-  if [[ ${COUNT} -lt 2 ]]
-  then
-    sudo -E hab sup run #{supervisor_options} > ~/nohup.out & echo $! > /tmp/run.pid
-  fi
-done
-END
-SCRIPT
+          while true
+          do
+            COUNT=$(ps aux | grep hab | wc -l)
+            if [[ ${COUNT} -lt 2 ]]
+            then
+              sudo -E hab sup run #{supervisor_options} > ~/nohup.out & echo $! > /tmp/run.pid
+            fi
+          done
+          END
+        SCRIPT
       end
 
       def run_package_in_background

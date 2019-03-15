@@ -8,23 +8,21 @@ Gem::Specification.new do |s|
   s.email             = ["smurawski@chef.io"]
   s.homepage          = "https://github.com/test-kitchen/kitchen-habitat"
   s.summary           = "Habitat provisioner for test-kitchen"
-  candidates          = Dir.glob("lib/**/*") + ["README.md", "kitchen-habitat.gemspec"]
+  candidates          = Dir.glob("lib/**/*") + ["README.md"]
   s.files             = candidates.sort
-  s.platform          = Gem::Platform::RUBY
   s.require_paths     = ["lib"]
-  s.rubyforge_project = "[none]"
-  s.license           = "Apache 2"
-  s.description       = <<-EOF
-== DESCRIPTION:
+  s.license           = "Apache-2.0"
+  s.description       = <<~EOF
+    == DESCRIPTION:
 
-Habitat Provisioner for Test Kitchen
+    Habitat Provisioner for Test Kitchen
 
-== FEATURES:
+    == FEATURES:
 
-TBD
+    TBD
 
-EOF
-  s.add_dependency "test-kitchen", "~> 1.4"
+  EOF
+  s.add_dependency "test-kitchen", ">= 1.4", "< 3"
 
   s.add_development_dependency "countloc", "~> 0.4"
   s.add_development_dependency "rake"
