@@ -55,7 +55,7 @@ module Kitchen
 
       def finalize_config!(instance)
         # Check to see if a package ident was specified for package name and be helpful
-        unless config[:package_name].nil? || (config[:package_name] =~ /\//).nil?
+        unless config[:package_name].nil? || (config[:package_name] =~ %r{/}).nil?
           config[:package_origin], config[:package_name], config[:package_version], config[:package_release] = config[:package_name].split("/")
         end
 
@@ -99,7 +99,7 @@ module Kitchen
           id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
           rm -rf /tmp/kitchen
           mkdir -p /tmp/kitchen/results
-          #{'mkdir -p /tmp/kitchen/config' unless config[:override_package_config]}
+          #{"mkdir -p /tmp/kitchen/config" unless config[:override_package_config]}
         EOH
       end
 
@@ -137,6 +137,7 @@ module Kitchen
 
       def clean_up_screen_sessions
         return unless config[:use_screen]
+
         <<-CLEAN
         if sudo -E screen -ls | grep -q #{clean_package_name}
           then
@@ -150,6 +151,7 @@ module Kitchen
 
       def clean_up_previous_supervisor
         return if config[:use_screen]
+
         <<-EOH
         [ -f ./run.pid ] && echo "Removing previous supervisor and unloading package. "
         [ -f ./run.pid ] && sudo -E hab svc unload #{package_ident}
@@ -226,6 +228,7 @@ module Kitchen
       def copy_package_config_from_override_to_sandbox
         return if config[:config_directory].nil?
         return unless config[:override_package_config]
+
         local_config_dir = File.join(config[:kitchen_root], config[:config_directory])
         return unless Dir.exist?(local_config_dir)
 
@@ -235,8 +238,10 @@ module Kitchen
 
       def copy_results_to_sandbox
         return if config[:artifact_name].nil? && !config[:install_latest_artifact]
+
         results_dir = resolve_results_directory
         return if results_dir.nil?
+
         FileUtils.mkdir_p(File.join(sandbox_path, "results"))
         FileUtils.cp(
           File.join(results_dir, config[:install_latest_artifact] ? latest_artifact_name : config[:artifact_name]),
@@ -256,6 +261,7 @@ module Kitchen
       def copy_user_toml_to_sandbox
         return if config[:config_directory].nil?
         return unless File.exist?(full_user_toml_path)
+
         FileUtils.mkdir_p(File.join(sandbox_path, "config"))
         debug("Copying user.toml from #{full_user_toml_path} to #{sandbox_user_toml_path}")
         FileUtils.cp(full_user_toml_path, sandbox_user_toml_path)
@@ -293,9 +299,10 @@ module Kitchen
 
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
+
         <<-EOH
           sudo -E mkdir -p /hab/svc/#{config[:package_name]}
-          sudo -E cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/user.toml
+          sudo -E cp #{File.join(File.join(config[:root_path], "config"), "user.toml")} /hab/svc/#{config[:package_name]}/user.toml
         EOH
       end
 
@@ -309,6 +316,7 @@ module Kitchen
 
       def export_hab_bldr_url
         return if config[:depot_url].nil?
+
         "export HAB_BLDR_URL=#{config[:depot_url]}"
       end
 
@@ -348,7 +356,7 @@ module Kitchen
         options = ""
         options += " --listen-ctl #{config[:hab_sup_listen_ctl]}" unless config[:hab_sup_listen_ctl].nil?
         options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
-        options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
+        options += " --config-from #{File.join(config[:root_path], "config/")}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?

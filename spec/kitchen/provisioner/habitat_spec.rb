@@ -73,7 +73,7 @@ describe Kitchen::Provisioner::Habitat do
         "else",
         "  curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'",
         "  sudo -E bash /tmp/install.sh",
-        "fi"
+        "fi",
       ]
       expect(install_command).to eq(wrap_command(expected_code, 8))
     end
@@ -101,7 +101,7 @@ describe Kitchen::Provisioner::Habitat do
         "id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1",
         "rm -rf /tmp/kitchen",
         "mkdir -p /tmp/kitchen/results",
-        ""
+        "",
       ]
       expect(install_command).to eq(wrap_command(expected_code))
     end
