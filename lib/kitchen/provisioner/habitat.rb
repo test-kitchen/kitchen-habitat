@@ -99,7 +99,7 @@ module Kitchen
           id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
           rm -rf /tmp/kitchen
           mkdir -p /tmp/kitchen/results
-          #{'mkdir -p /tmp/kitchen/config' unless config[:override_package_config]}
+          #{"mkdir -p /tmp/kitchen/config" unless config[:override_package_config]}
         EOH
       end
 
@@ -302,7 +302,7 @@ module Kitchen
 
         <<-EOH
           sudo -E mkdir -p /hab/svc/#{config[:package_name]}
-          sudo -E cp #{File.join(File.join(config[:root_path], 'config'), 'user.toml')} /hab/svc/#{config[:package_name]}/user.toml
+          sudo -E cp #{File.join(File.join(config[:root_path], "config"), "user.toml")} /hab/svc/#{config[:package_name]}/user.toml
         EOH
       end
 
@@ -356,7 +356,7 @@ module Kitchen
         options = ""
         options += " --listen-ctl #{config[:hab_sup_listen_ctl]}" unless config[:hab_sup_listen_ctl].nil?
         options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
-        options += " --config-from #{File.join(config[:root_path], 'config/')}" if config[:override_package_config]
+        options += " --config-from #{File.join(config[:root_path], "config/")}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
         options += config[:hab_sup_peer].map { |p| " --peer #{p}" }.join(" ") if config[:hab_sup_peer].any?
         options += " --group #{config[:hab_sup_group]}" unless config[:hab_sup_group].nil?
