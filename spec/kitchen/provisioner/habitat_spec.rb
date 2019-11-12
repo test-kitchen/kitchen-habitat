@@ -67,6 +67,7 @@ describe Kitchen::Provisioner::Habitat do
       )
       expected_code = [
         "",
+        "",
         "if command -v hab >/dev/null 2>&1",
         "then",
         "  echo \"Habitat CLI already installed.\"",

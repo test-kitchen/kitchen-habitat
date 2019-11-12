@@ -17,6 +17,7 @@ module Kitchen
       kitchen_provisioner_api_version 2
 
       default_config :depot_url, nil
+      default_config :hab_license, nil
       default_config :hab_version, "latest"
       default_config :hab_sup_origin, "core"
       default_config :hab_sup_name, "hab-sup"
@@ -84,6 +85,7 @@ module Kitchen
 
         wrap_shell_code <<-BASH
         #{export_hab_bldr_url}
+        #{export_hab_license}
         if command -v hab >/dev/null 2>&1
         then
           echo "Habitat CLI already installed."
@@ -113,6 +115,7 @@ module Kitchen
       def prepare_command
         wrap_shell_code <<-EOH
           #{export_hab_bldr_url}
+          #{export_hab_license}
           #{install_supervisor_command}
           #{binlink_supervisor_command}
           #{install_service_package}
@@ -124,6 +127,7 @@ module Kitchen
       def run_command
         run = <<-RUN
         #{export_hab_bldr_url}
+        #{export_hab_license}
         #{clean_up_screen_sessions}
         #{clean_up_previous_supervisor}
         echo "Running #{package_ident}."
@@ -310,6 +314,11 @@ module Kitchen
       def export_hab_bldr_url
         return if config[:depot_url].nil?
         "export HAB_BLDR_URL=#{config[:depot_url]}"
+      end
+
+      def export_hab_license
+        return if config[:hab_license].nil?
+        "export HAB_LICENSE=#{config[:hab_license]}"
       end
 
       def install_supervisor_command
