@@ -326,6 +326,7 @@ module Kitchen
 
       def export_hab_license
         return if config[:hab_license].nil?
+
         "export HAB_LICENSE=#{config[:hab_license]}"
       end
 
