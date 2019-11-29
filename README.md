@@ -11,6 +11,9 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
 
 ## Configuration Settings
 
+* `hab_license`: Habitat license acceptance type (for more information please read the [chef license documentation](https://docs.chef.io/chef_license_accept.html#habitat)).
+* `hab_version`: The version of habitat to be used in test kitchen.
+
 ### Depot settings
 
 * `depot_url`
