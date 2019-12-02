@@ -4,8 +4,8 @@ require "kitchen-habitat/version"
 Gem::Specification.new do |s|
   s.name              = "kitchen-habitat"
   s.version           = Kitchen::Habitat::VERSION
-  s.authors           = ["Steven Murawski"]
-  s.email             = ["smurawski@chef.io"]
+  s.authors           = ["Steven Murawski", "Robb Kidd"]
+  s.email             = ["smurawski@chef.io", "robb@thekidds.org"]
   s.homepage          = "https://github.com/test-kitchen/kitchen-habitat"
   s.summary           = "Habitat provisioner for test-kitchen"
   candidates          = Dir.glob("lib/**/*") + ["README.md"]
