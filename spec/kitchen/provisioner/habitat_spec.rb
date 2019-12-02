@@ -67,6 +67,26 @@ describe Kitchen::Provisioner::Habitat do
       )
       expected_code = [
         "",
+        "",
+        "if command -v hab >/dev/null 2>&1",
+        "then",
+        "  echo \"Habitat CLI already installed.\"",
+        "else",
+        "  curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'",
+        "  sudo -E bash /tmp/install.sh",
+        "fi",
+      ]
+      expect(install_command).to eq(wrap_command(expected_code, 8))
+    end
+
+    it "generates a valid install script with accepted license" do
+      config[:hab_license] = "accept"
+      install_command = provisioner.send(
+        :install_command
+      )
+      expected_code = [
+        "",
+        "export HAB_LICENSE=accept",
         "if command -v hab >/dev/null 2>&1",
         "then",
         "  echo \"Habitat CLI already installed.\"",
