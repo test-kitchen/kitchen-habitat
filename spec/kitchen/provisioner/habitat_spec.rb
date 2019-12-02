@@ -80,7 +80,7 @@ describe Kitchen::Provisioner::Habitat do
     end
 
     it "generates a valid install script with accepted license" do
-      config[:hab_license] = 'accept'
+      config[:hab_license] = "accept"
       install_command = provisioner.send(
         :install_command
       )
