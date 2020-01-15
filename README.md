@@ -1,12 +1,14 @@
 [![Gem Version](https://badge.fury.io/rb/kitchen-habitat.svg)](http://badge.fury.io/rb/kitchen-habitat)
+[![Build Status](https://travis-ci.org/test-kitchen/kitchen-habitat.svg?branch=master)](https://travis-ci.org/test-kitchen/kitchen-habitat)
 
 # kitchen-habitat
+
 A Test Kitchen Provisioner for [Habitat](https://habitat.sh)
 
 ## Requirements
 
-
 ## Installation & Setup
+
 You'll need the test-kitchen & kitchen-habitat gems installed in your system, along with kitchen-vagrant or some other suitable driver for test-kitchen.
 
 ## Configuration Settings
@@ -123,7 +125,7 @@ suites:
   - name: default
 ```
 
-Two node: elasticsearch and kibana 
+Two node: elasticsearch and kibana
 
 ```yaml
 driver:
@@ -155,5 +157,5 @@ suites:
         - elasticsearch:elasticsearch.default
     driver:
       instance_name: kibana
-      links: elastic:elastic  
+      links: elastic:elastic
 ```
