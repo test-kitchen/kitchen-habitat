@@ -19,6 +19,7 @@ module Kitchen
       default_config :depot_url, nil
       default_config :hab_license, nil
       default_config :hab_version, "latest"
+      default_config :hab_channel, "stable"
       default_config :hab_sup_origin, "core"
       default_config :hab_sup_name, "hab-sup"
       default_config :hab_sup_version, nil
@@ -51,9 +52,6 @@ module Kitchen
       default_config :user_toml_name, "user.toml"
       default_config :override_package_config, false
 
-      # experimental
-      default_config :use_screen, false
-
       def finalize_config!(instance)
         # Check to see if a package ident was specified for package name and be helpful
         unless config[:package_name].nil? || (config[:package_name] =~ %r{/}).nil?
@@ -79,30 +77,27 @@ module Kitchen
       end
 
       def install_command
-        raise "Need to fill in some implementation here." if instance.platform == "windows"
-
-        version = " -v #{config[:hab_version]}" unless config[:hab_version].eql?("latest")
-
-        wrap_shell_code <<-BASH
-        #{export_hab_bldr_url}
-        #{export_hab_license}
-        if command -v hab >/dev/null 2>&1
-        then
-          echo "Habitat CLI already installed."
+        if windows_os?
+          wrap_shell_code <<-PWSH
+          #{windows_install_cmd}
+          PWSH
         else
-          curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
-          sudo -E bash /tmp/install.sh#{version}
-        fi
-        BASH
+          wrap_shell_code <<-BASH
+          #{linux_install_cmd}
+          BASH
+        end
       end
 
       def init_command
-        wrap_shell_code <<-EOH
-          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
-          rm -rf /tmp/kitchen
-          mkdir -p /tmp/kitchen/results
-          #{"mkdir -p /tmp/kitchen/config" unless config[:override_package_config]}
-        EOH
+        if windows_os?
+          wrap_shell_code <<-PWSH
+            #{windows_install_service}
+          PWSH
+        else
+          wrap_shell_code <<-EOH
+            #{linux_install_service}
+          EOH
+        end
       end
 
       def create_sandbox
@@ -113,104 +108,153 @@ module Kitchen
       end
 
       def prepare_command
+        debug("Prepare command is running")
         wrap_shell_code <<-EOH
-          #{export_hab_bldr_url}
-          #{export_hab_license}
-          #{install_supervisor_command}
-          #{binlink_supervisor_command}
-          #{install_service_package}
           #{remove_previous_user_toml}
           #{copy_user_toml_to_service_directory}
         EOH
       end
 
       def run_command
-        run = <<-RUN
-        #{export_hab_bldr_url}
-        #{export_hab_license}
-        #{clean_up_screen_sessions}
-        #{clean_up_previous_supervisor}
-        echo "Running #{package_ident}."
-        #{run_package_in_background}
-        RUN
+        # TODO: This isn't waiting for the service to come up... should we wait? If so, how long?
+        # TODO: This doesn't allow loading local artifacts
+        # TODO: Should we use 'hab svc load' or 'hab pkg install'
 
-        wrap_shell_code run
+        # This little bit let's us load hab packages that don't run as a service too
+        # we install, then look to see if there's a run hook. If so, we load the service
+        if config[:install_latest_artifact] || !config[:artifact_name].nil?
+          target_pkg = get_artifact_name
+          target_ident = "#{config[:package_origin]}/#{config[:package_name]}"
+        else
+          target_pkg = package_ident
+          target_ident = package_ident
+        end
+
+        debug("The target pkg is: #{target_pkg}")
+        debug("The target ident is: #{target_ident}")
+
+        if windows_os?
+          wrap_shell_code <<-PWSH
+          if (!($env:Path | Select-String "Habitat")) {
+            $env:Path += ";C:\\ProgramData\Habitat"
+          }
+          hab pkg install #{target_pkg} --force
+          if (Test-Path -Path "$(hab pkg path #{target_ident})\\hooks\\run") {
+            hab svc load #{target_ident} #{service_options} --force
+          }
+          Do { Start-Sleep -Seconds 1
+            } until( hab svc status | out-string -stream | select-string #{target_ident})
+          PWSH
+        else
+          wrap_shell_code <<-EOH
+          until sudo -E hab svc status > /dev/null
+            do
+              echo "Waiting 5 seconds for supervisor to finish loading"
+              sleep 5
+            done
+          sudo hab pkg install #{target_pkg} --force 
+          if [ -f $(sudo hab pkg path #{target_ident})/hooks/run ]
+            then
+              sudo -E hab svc load #{target_ident} #{service_options} --force
+          fi
+          until sudo -E hab svc status | grep #{target_ident}
+            do
+              sleep 1
+            done
+          EOH
+        end
       end
 
       private
 
-      def clean_up_screen_sessions
-        return unless config[:use_screen]
-
-        <<-CLEAN
-        if sudo -E screen -ls | grep -q #{clean_package_name}
-          then
-            echo "Killing previous supervisor session."
-            sudo -E screen -S \"#{clean_package_name}\" -X quit > /dev/null
-            echo "Removing dead session."
-            sudo -E screen -wipe > /dev/null
-        fi
-        CLEAN
+      def windows_install_cmd
+        <<-PWSH
+        if ((Get-Command hab -ErrorAction Ignore).Path) {
+          Write-Output "Habitat CLI already installed."
+        } else {
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          $InstallScript = ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.ps1'))
+          Invoke-Command -ScriptBlock ([scriptblock]::Create($InstallScript)) -ArgumentList #{config[:hab_channel]}, #{config[:hab_version]}
+        }
+        PWSH
       end
 
-      def clean_up_previous_supervisor
-        return if config[:use_screen]
-
-        <<-EOH
-        [ -f ./run.pid ] && echo "Removing previous supervisor and unloading package. "
-        [ -f ./run.pid ] && sudo -E hab svc unload #{package_ident}
-        [ -f ./run.pid ] && sleep 5
-        [ -f ./run.pid ] && sudo -E kill $(cat run.pid)
-        [ -f ./run.pid ] && sleep 5
-        EOH
-      end
-
-      def sup_run_script
-        <<~SCRIPT
-          cat > /tmp/sup-run.sh <<"END"
-          #!/bin/bash
-
-          while true
-          do
-            COUNT=$(ps aux | grep hab | wc -l)
-            if [[ ${COUNT} -lt 2 ]]
-            then
-              sudo -E hab sup run #{supervisor_options} > ~/nohup.out & echo $! > /tmp/run.pid
-            fi
-          done
-          END
-        SCRIPT
-      end
-
-      def run_package_in_background
-        if config[:use_screen]
-          "sudo -E screen -mdS \"#{clean_package_name}\" hab start #{package_ident} #{supervisor_options}"
+      def linux_install_cmd
+        version = " -v #{config[:hab_version]}" unless config[:hab_version].eql?("latest")
+        puts version
+        <<-BASH
+        if command -v hab >/dev/null 2>&1
+        then
+          echo "Habitat CLI already installed."
         else
-          <<-RUN
-          [ -f ./run.pid ] && rm -f run.pid
-          [ -f ./nohup.out ] && rm -f nohup.out
+          curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
+          sudo -E bash /tmp/install.sh#{version}
+        fi
+        BASH
+      end
 
-          #{sup_run_script}
+      def windows_install_service
+        # TODO: Add ability to create C:/hab/svc/windows-service/HabService.dll.config
+        <<-PWSH
+        New-Item -Path C:\\Windows\\Temp\\kitchen -ItemType Directory -Force | Out-Null
+        #{"New-Item -Path C:\\Windows\\Temp\\kitchen\\config -ItemType Directory -Force | Out-Null" unless config[:override_package_config]}
+        if (!(Get-Service -Name Habitat -ErrorAction Ignore)) {
+          hab license accept
+          Write-Output "Installing Habitat Windows Service"
+          hab pkg install core/windows-service
+          if ($(Get-Service -Name Habitat).Status -ne "Stopped") {
+            Stop-Service -Name Habitat
+          }
+          $ServiceConfig = @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <appSettings>
+              <add key="debug" value="false" />
+              <add key="HAB_FEAT_IGNORE_SIGNALS" value="true" />
+              <add key="HAB_FEAT_INSTALL_HOOK" value="true" />
+              <add key="launcherArgs" value="--no-color #{supervisor_options}" />
+            </appSettings>
+          </configuration>
+          "@
+          $ServiceConfig | Out-File -FilePath test.txt 
+          Start-Service -Name Habitat
+        }
+        PWSH
+      end
 
-          sudo -E chmod +x /tmp/sup-run.sh
-
-          nohup /tmp/sup-run.sh & > sup-run.out
-
-          until sudo -E hab svc status
-          do
-            sleep 1
-          done
-
-          sudo -E hab svc load #{package_ident} #{service_options}
-
-          until sudo -E hab svc status | grep #{package_ident}
-          do
-            sleep 1
-          done
-
-          [ -f ./nohup.out ] && cat nohup.out || (echo "Failed to start the supervisor." && exit 1)
-          RUN
-        end
+      def linux_install_service
+        <<-EOH
+        id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
+        rm -rf /tmp/kitchen
+        mkdir -p /tmp/kitchen/results
+        #{"mkdir -p /tmp/kitchen/config" unless config[:override_package_config]}
+        if [ -f /etc/systemd/system/hab-sup.service ]
+        then
+          echo "Hab-sup service already exists"
+        else
+          echo "Starting hab-sup service install"
+          hab license accept
+          if ! id -u hab > /dev/null 2>&1; then
+            echo "Adding hab user"
+            sudo -E groupadd hab
+          fi
+          if ! id -g hab > /dev/null 2>&1; then
+            echo "Adding hab group"
+            sudo -E useradd -g hab hab
+          fi
+          echo [Unit] | sudo tee /etc/systemd/system/hab-sup.service
+          echo Description=The Chef Habitat Supervisor | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo Environment="HAB_BLDR_URL=#{config[:depot_url]}" | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo Environment="HAB_LICENSE=#{config[:hab_license]}" | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo "ExecStart=/bin/hab sup run #{supervisor_options}" | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo [Install] | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo WantedBy=default.target | sudo tee -a /etc/systemd/system/hab-sup.service
+          sudo -E systemctl daemon-reload
+          sudo -E systemctl start hab-sup
+          sudo -E systemctl enable hab-sup
+        fi
+        EOH
       end
 
       def resolve_results_directory
@@ -271,9 +315,59 @@ module Kitchen
         FileUtils.cp(full_user_toml_path, sandbox_user_toml_path)
       end
 
-      def install_service_package
-        return unless config[:install_latest_artifact] || !config[:artifact_name].nil?
+      def latest_artifact_name
+        results_dir = resolve_results_directory
+        return if results_dir.nil?
 
+        artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
+
+        File.basename(artifact_path)
+      end
+
+      def copy_user_toml_to_service_directory
+        return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
+        if windows_os?
+          <<-EOH
+          New-Item -Path c:\\hab\\user\\#{config[:package_name]}\\config -ItemType Directory -Force  | Out-Null
+          Copy-Item -Path #{File.join(File.join(config[:root_path], "config"), "user.toml")} -Destination c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml -Force
+          EOH
+        else
+          <<-EOH
+            sudo -E mkdir -p /hab/user/#{config[:package_name]}/config
+            sudo -E cp #{File.join(File.join(config[:root_path], "config"), "user.toml")} /hab/user/#{config[:package_name]}/config/user.toml
+          EOH
+        end
+      end
+
+      def remove_previous_user_toml
+        if windows_os?
+          <<-REMOVE
+          if (Test-Path c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml) {
+            Remove-Item -Path c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml -Force
+          }
+          REMOVE
+        else
+          <<-REMOVE
+          if [ -d "/hab/user/#{config[:package_name]}/config" ]; then
+            sudo -E find /hab/user/#{config[:package_name]}/config -name user.toml -delete
+          fi
+          REMOVE
+        end
+      end
+
+      def artifact_name_to_package_ident_regex
+        /(?<origin>\w+)-(?<name>.*)-(?<version>(\d+)?(\.\d+)?(\.\d+)?(\.\d+)?)-(?<release>\d+)-(?<target>.*)\.hart$/
+      end
+
+      def package_ident
+        ident = "#{config[:package_origin]}/" \
+                "#{config[:package_name]}/" \
+                "#{config[:package_version]}/" \
+                "#{config[:package_release]}".chomp("/").chomp("/")
+        @pkg_ident = ident
+      end
+
+      def get_artifact_name
         artifact_name = ""
         if config[:install_latest_artifact]
           artifact_name = latest_artifact_name
@@ -287,79 +381,8 @@ module Kitchen
         config[:package_name] = ident["name"]
         config[:package_version] = ident["version"]
         config[:package_release] = ident["release"]
-
-        artifact_path = File.join(File.join(config[:root_path], "results"), artifact_name)
-        "sudo -E hab pkg install #{artifact_path}"
-      end
-
-      def latest_artifact_name
-        results_dir = resolve_results_directory
-        return if results_dir.nil?
-
-        artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
-
-        File.basename(artifact_path)
-      end
-
-      def copy_user_toml_to_service_directory
-        return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
-
-        <<-EOH
-          sudo -E mkdir -p /hab/svc/#{config[:package_name]}
-          sudo -E cp #{File.join(File.join(config[:root_path], "config"), "user.toml")} /hab/svc/#{config[:package_name]}/user.toml
-        EOH
-      end
-
-      def remove_previous_user_toml
-        <<-REMOVE
-        if [ -d "/hab/svc/#{config[:package_name]}" ]; then
-          sudo -E find /hab/svc/#{config[:package_name]} -name user.toml -delete
-        fi
-        REMOVE
-      end
-
-      def export_hab_bldr_url
-        return if config[:depot_url].nil?
-
-        "export HAB_BLDR_URL=#{config[:depot_url]}"
-      end
-
-      def export_hab_license
-        return if config[:hab_license].nil?
-
-        "export HAB_LICENSE=#{config[:hab_license]}"
-      end
-
-      def install_supervisor_command
-        "sudo -E hab pkg install #{hab_sup_ident}"
-      end
-
-      def binlink_supervisor_command
-        "sudo -E hab pkg binlink #{hab_sup_ident} hab-sup"
-      end
-
-      def artifact_name_to_package_ident_regex
-        /(?<origin>\w+)-(?<name>.*)-(?<version>(\d+)?(\.\d+)?(\.\d+)?(\.\d+)?)-(?<release>\d+)-(?<target>.*)\.hart$/
-      end
-
-      def hab_sup_ident
-        ident = "#{config[:hab_sup_origin]}/" \
-                "#{config[:hab_sup_name]}/" \
-                "#{config[:hab_sup_version]}/" \
-                "#{config[:hab_sup_release]}".chomp("/").chomp("/")
-        @sup_ident ||= ident
-      end
-
-      def package_ident
-        ident = "#{config[:package_origin]}/" \
-                "#{config[:package_name]}/" \
-                "#{config[:package_version]}/" \
-                "#{config[:package_release]}".chomp("/").chomp("/")
-        @pkg_ident = ident
-      end
-
-      def clean_package_name
-        @clean_name ||= "#{config[:package_origin]}-#{config[:package_name]}"
+      
+        File.join(File.join(config[:root_path], "results"), artifact_name)
       end
 
       def supervisor_options
