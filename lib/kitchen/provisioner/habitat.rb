@@ -318,9 +318,14 @@ module Kitchen
       def latest_artifact_name
         results_dir = resolve_results_directory
         return if results_dir.nil?
+        if config[:install_latest_artifact]
+          if config[:package_origin].nil? || config[:package_name].nil?
+            raise UserError,
+                "You must specify a 'package_origin' and 'package_name' to use the 'install_latest_artifact' option"
+          end
+        end
 
         artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
-
         File.basename(artifact_path)
       end
 
