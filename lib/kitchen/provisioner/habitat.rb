@@ -215,8 +215,9 @@ module Kitchen
             </appSettings>
           </configuration>
 "@
-          $ServiceConfig | Out-File -FilePath test.txt 
+          $ServiceConfig | Out-File -FilePath C:/hab/svc/windows-service/HabService.dll.config
           Start-Service -Name Habitat
+          Start-Sleep 10
         }
         PWSH
       end
