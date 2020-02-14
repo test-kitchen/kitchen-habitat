@@ -117,8 +117,6 @@ module Kitchen
 
       def run_command
         # TODO: This isn't waiting for the service to come up... should we wait? If so, how long?
-        # TODO: This doesn't allow loading local artifacts
-        # TODO: Should we use 'hab svc load' or 'hab pkg install'
 
         # This little bit let's us load hab packages that don't run as a service too
         # we install, then look to see if there's a run hook. If so, we load the service
@@ -130,20 +128,18 @@ module Kitchen
           target_ident = package_ident
         end
 
-        debug("The target pkg is: #{target_pkg}")
-        debug("The target ident is: #{target_ident}")
-
         if windows_os?
           wrap_shell_code <<-PWSH
           if (!($env:Path | Select-String "Habitat")) {
-            $env:Path += ";C:\\ProgramData\Habitat"
+            $env:Path += ";C:\\ProgramData\\Habitat"
           }
-          hab pkg install #{target_pkg} --force
+          hab pkg install #{target_pkg} --channel #{config[:channel]} --force
           if (Test-Path -Path "$(hab pkg path #{target_ident})\\hooks\\run") {
             hab svc load #{target_ident} #{service_options} --force
-          }
-          Do { Start-Sleep -Seconds 1
+            Do {
+              Start-Sleep -Seconds 1
             } until( hab svc status | out-string -stream | select-string #{target_ident})
+          }
           PWSH
         else
           wrap_shell_code <<-EOH
@@ -152,15 +148,15 @@ module Kitchen
               echo "Waiting 5 seconds for supervisor to finish loading"
               sleep 5
             done
-          sudo hab pkg install #{target_pkg} --force 
+          sudo hab pkg install #{target_pkg} --channel #{config[:channel]} --force 
           if [ -f $(sudo hab pkg path #{target_ident})/hooks/run ]
             then
               sudo -E hab svc load #{target_ident} #{service_options} --force
+              until sudo -E hab svc status | grep #{target_ident}
+                do
+                  sleep 1
+                done
           fi
-          until sudo -E hab svc status | grep #{target_ident}
-            do
-              sleep 1
-            done
           EOH
         end
       end
@@ -198,6 +194,9 @@ module Kitchen
         <<-PWSH
         New-Item -Path C:\\Windows\\Temp\\kitchen -ItemType Directory -Force | Out-Null
         #{"New-Item -Path C:\\Windows\\Temp\\kitchen\\config -ItemType Directory -Force | Out-Null" unless config[:override_package_config]}
+        if (!($env:Path | Select-String "Habitat")) {
+          $env:Path += ";C:\\ProgramData\\Habitat"
+        }
         if (!(Get-Service -Name Habitat -ErrorAction Ignore)) {
           hab license accept
           Write-Output "Installing Habitat Windows Service"
@@ -215,7 +214,7 @@ module Kitchen
               <add key="launcherArgs" value="--no-color #{supervisor_options}" />
             </appSettings>
           </configuration>
-          "@
+"@
           $ServiceConfig | Out-File -FilePath test.txt 
           Start-Service -Name Habitat
         }
