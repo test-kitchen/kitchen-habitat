@@ -205,17 +205,17 @@ module Kitchen
             Stop-Service -Name Habitat
           }
           $ServiceConfig = @"
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <appSettings>
-              <add key="debug" value="false" />
-              <add key="HAB_FEAT_IGNORE_SIGNALS" value="true" />
-              <add key="HAB_FEAT_INSTALL_HOOK" value="true" />
-              <add key="launcherArgs" value="--no-color #{supervisor_options}" />
-            </appSettings>
-          </configuration>
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <appSettings>
+    <add key="debug" value="false" />
+    <add key="HAB_FEAT_IGNORE_SIGNALS" value="true" />
+    <add key="HAB_FEAT_INSTALL_HOOK" value="true" />
+    <add key="launcherArgs" value="--no-color #{supervisor_options}" />
+  </appSettings>
+</configuration>
 "@
-          $ServiceConfig | Out-File -FilePath C:/hab/svc/windows-service/HabService.dll.config
+          $ServiceConfig | Out-File -encoding utf8 -FilePath C:/hab/svc/windows-service/HabService.dll.config
           Start-Service -Name Habitat
           Start-Sleep 10
         }
