@@ -126,12 +126,15 @@ module Kitchen
       def run_command
         # TODO: This isn't waiting for the service to come up... should we wait? If so, how long?
 
-        # This little bit let's us load hab packages that don't run as a service too
-        # we install, then look to see if there's a run hook. If so, we load the service
+        # This little bit figures out what package should be loaded
         if config[:install_latest_artifact] || !config[:artifact_name].nil?
           target_pkg = get_artifact_name
           target_ident = "#{config[:package_origin]}/#{config[:package_name]}"
-          target_pkg = target_pkg.gsub("results/", '') unless File.exists?(target_pkg)
+          # TODO: This is a workaround for windows. The hart file sometimes gets copied to the 
+          # %TEMP%\kitchen instead of %TEMP%\kitchen\results.
+          if windows_os?
+            target_pkg = target_pkg.gsub("results/", '') unless File.exists?(target_pkg)
+          end
         else
           target_pkg = package_ident
           target_ident = package_ident
