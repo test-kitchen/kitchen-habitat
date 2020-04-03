@@ -11,14 +11,11 @@ require "kitchen/transport/dummy"
 require "kitchen/verifier/dummy"
 
 def wrap_command(code, left_pad_length = 10)
-  left_padded_code = code.map do |line|
-    line.rjust(line.length + left_pad_length)
-  end.join("\n")
   command = "sh -c '\n"
   command << "TEST_KITCHEN=\"1\"; export TEST_KITCHEN\n"
   command << "CI=\"true\"; export CI\n" if ENV["CI"]
-  command << "#{left_padded_code}\n"
-  command << "'"
+  command << code
+  command <<"'"
   command
 end
 
@@ -65,17 +62,15 @@ describe Kitchen::Provisioner::Habitat do
       install_command = provisioner.send(
         :install_command
       )
-      expected_code = [
-        "",
-        "",
-        "if command -v hab >/dev/null 2>&1",
-        "then",
-        "  echo \"Habitat CLI already installed.\"",
-        "else",
-        "  curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'",
-        "  sudo -E bash /tmp/install.sh",
-        "fi",
-      ]
+      expected_code = <<~EXPECTED
+        if command -v hab >/dev/null 2>&1
+        then
+          echo "Habitat CLI already installed."
+        else
+          curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
+          sudo -E bash /tmp/install.sh
+        fi
+      EXPECTED
       expect(install_command).to eq(wrap_command(expected_code, 8))
     end
 
@@ -84,31 +79,31 @@ describe Kitchen::Provisioner::Habitat do
       install_command = provisioner.send(
         :install_command
       )
-      expected_code = [
-        "",
-        "export HAB_LICENSE=accept",
-        "if command -v hab >/dev/null 2>&1",
-        "then",
-        "  echo \"Habitat CLI already installed.\"",
-        "else",
-        "  curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'",
-        "  sudo -E bash /tmp/install.sh",
-        "fi",
-      ]
+      expected_code = <<~EXPECTED
+        export HAB_LICENSE=accept
+        if command -v hab >/dev/null 2>&1
+        then
+          echo "Habitat CLI already installed."
+        else
+          curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
+          sudo -E bash /tmp/install.sh
+        fi
+      EXPECTED
       expect(install_command).to eq(wrap_command(expected_code, 8))
     end
   end
+
   describe "#init_command" do
     it "generates a valid initialization script" do
       install_command = provisioner.send(
         :init_command
       )
-      expected_code = [
-        "id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1",
-        "rm -rf /tmp/kitchen",
-        "mkdir -p /tmp/kitchen/results",
-        "mkdir -p /tmp/kitchen/config",
-      ]
+      expected_code = <<~EXPECTED
+        id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
+        rm -rf /tmp/kitchen
+        mkdir -p /tmp/kitchen/results
+        mkdir -p /tmp/kitchen/config
+      EXPECTED
       expect(install_command).to eq(wrap_command(expected_code))
     end
 
@@ -117,12 +112,11 @@ describe Kitchen::Provisioner::Habitat do
       install_command = provisioner.send(
         :init_command
       )
-      expected_code = [
-        "id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1",
-        "rm -rf /tmp/kitchen",
-        "mkdir -p /tmp/kitchen/results",
-        "",
-      ]
+      expected_code = <<~EXPECTED
+        id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
+        rm -rf /tmp/kitchen
+        mkdir -p /tmp/kitchen/results
+      EXPECTED
       expect(install_command).to eq(wrap_command(expected_code))
     end
   end

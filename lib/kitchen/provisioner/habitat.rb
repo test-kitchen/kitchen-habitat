@@ -58,7 +58,6 @@ module Kitchen
       default_config :event_stream_site, nil
       default_config :event_stream_url, nil
       default_config :event_stream_token, nil
-      
 
       def finalize_config!(instance)
         # Check to see if a package ident was specified for package name and be helpful
@@ -86,25 +85,17 @@ module Kitchen
 
       def install_command
         if windows_os?
-          wrap_shell_code <<-PWSH
-          #{windows_install_cmd}
-          PWSH
+          wrap_shell_code(windows_install_cmd)
         else
-          wrap_shell_code <<-BASH
-          #{linux_install_cmd}
-          BASH
+          wrap_shell_code(linux_install_cmd)
         end
       end
 
       def init_command
         if windows_os?
-          wrap_shell_code <<-PWSH
-            #{windows_install_service}
-          PWSH
+          wrap_shell_code(windows_install_service)
         else
-          wrap_shell_code <<-EOH
-            #{linux_install_service}
-          EOH
+          wrap_shell_code(linux_install_service)
         end
       end
 
@@ -117,10 +108,10 @@ module Kitchen
 
       def prepare_command
         debug("Prepare command is running")
-        wrap_shell_code <<-EOH
+        wrap_shell_code <<~PREPARE
           #{remove_previous_user_toml}
           #{copy_user_toml_to_service_directory}
-        EOH
+        PREPARE
       end
 
       def run_command
@@ -130,7 +121,7 @@ module Kitchen
         if config[:install_latest_artifact] || !config[:artifact_name].nil?
           target_pkg = get_artifact_name
           target_ident = "#{config[:package_origin]}/#{config[:package_name]}"
-          # TODO: This is a workaround for windows. The hart file sometimes gets copied to the 
+          # TODO: This is a workaround for windows. The hart file sometimes gets copied to the
           # %TEMP%\kitchen instead of %TEMP%\kitchen\results.
           if windows_os?
             target_pkg = target_pkg.gsub("results/", '') unless File.exists?(target_pkg)
@@ -141,131 +132,122 @@ module Kitchen
         end
 
         if windows_os?
-          wrap_shell_code <<-PWSH
-          if (!($env:Path | Select-String "Habitat")) {
-            $env:Path += ";C:\\ProgramData\\Habitat"
-          }
-          hab pkg install #{target_pkg} --channel #{config[:channel]} --force
-          if (Test-Path -Path "$(hab pkg path #{target_ident})\\hooks\\run") {
-            hab svc load #{target_ident} #{service_options} --force
-            Do {
-              Start-Sleep -Seconds 1
-            } until( hab svc status | out-string -stream | select-string #{target_ident})
-          }
+          wrap_shell_code <<~PWSH
+            if (!($env:Path | Select-String "Habitat")) {
+              $env:Path += ";C:\\ProgramData\\Habitat"
+            }
+            hab pkg install #{target_pkg} --channel #{config[:channel]} --force
+            if (Test-Path -Path "$(hab pkg path #{target_ident})\\hooks\\run") {
+              hab svc load #{target_ident} #{service_options} --force
+              Do {
+                Start-Sleep -Seconds 1
+              } until( hab svc status | out-string -stream | select-string #{target_ident})
+            }
           PWSH
         else
-          wrap_shell_code <<-EOH
-          until sudo -E hab svc status > /dev/null
-            do
-              echo "Waiting 5 seconds for supervisor to finish loading"
-              sleep 5
-            done
-          sudo hab pkg install #{target_pkg} --channel #{config[:channel]} --force 
-          if [ -f $(sudo hab pkg path #{target_ident})/hooks/run ]
-            then
-              sudo -E hab svc load #{target_ident} #{service_options} --force
-              until sudo -E hab svc status | grep #{target_ident}
-                do
-                  sleep 1
-                done
-          fi
-          EOH
+          wrap_shell_code <<~BASH
+            until sudo -E hab svc status > /dev/null
+              do
+                echo "Waiting 5 seconds for supervisor to finish loading"
+                sleep 5
+              done
+            sudo hab pkg install #{target_pkg} --channel #{config[:channel]} --force
+            if [ -f $(sudo hab pkg path #{target_ident})/hooks/run ]
+              then
+                sudo -E hab svc load #{target_ident} #{service_options} --force
+                until sudo -E hab svc status | grep #{target_ident}
+                  do
+                    sleep 1
+                  done
+            fi
+          BASH
         end
       end
 
       private
 
       def windows_install_cmd
-        <<-PWSH
-        if ((Get-Command hab -ErrorAction Ignore).Path) {
-          Write-Output "Habitat CLI already installed."
-        } else {
-          Set-ExecutionPolicy Bypass -Scope Process -Force
-          $InstallScript = ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.ps1'))
-          Invoke-Command -ScriptBlock ([scriptblock]::Create($InstallScript)) -ArgumentList #{config[:hab_channel]}, #{config[:hab_version]}
-        }
+        <<~PWSH
+          if ((Get-Command hab -ErrorAction Ignore).Path) {
+            Write-Output "Habitat CLI already installed."
+          } else {
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            $InstallScript = ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.ps1'))
+            Invoke-Command -ScriptBlock ([scriptblock]::Create($InstallScript)) -ArgumentList #{config[:hab_channel]}, #{config[:hab_version]}
+          }
         PWSH
       end
 
       def linux_install_cmd
         version = " -v #{config[:hab_version]}" unless config[:hab_version].eql?("latest")
-        puts version
-        <<-BASH
-        if command -v hab >/dev/null 2>&1
-        then
-          echo "Habitat CLI already installed."
-        else
-          curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
-          sudo -E bash /tmp/install.sh#{version}
-        fi
+        <<~BASH
+          if command -v hab >/dev/null 2>&1
+          then
+            echo "Habitat CLI already installed."
+          else
+            curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
+            sudo -E bash /tmp/install.sh#{version}
+          fi
         BASH
       end
 
       def windows_install_service
-        # TODO: Add ability to create C:/hab/svc/windows-service/HabService.dll.config
-        <<-PWSH
-        New-Item -Path C:\\Windows\\Temp\\kitchen -ItemType Directory -Force | Out-Null
-        #{"New-Item -Path C:\\Windows\\Temp\\kitchen\\config -ItemType Directory -Force | Out-Null" unless config[:override_package_config]}
-        if (!($env:Path | Select-String "Habitat")) {
-          $env:Path += ";C:\\ProgramData\\Habitat"
-        }
-        if (!(Get-Service -Name Habitat -ErrorAction Ignore)) {
-          hab license accept
-          Write-Output "Installing Habitat Windows Service"
-          hab pkg install core/windows-service
-          if ($(Get-Service -Name Habitat).Status -ne "Stopped") {
-            Stop-Service -Name Habitat
+        <<~WINDOWS_SERVICE_SETUP
+          New-Item -Path C:\\Windows\\Temp\\kitchen -ItemType Directory -Force | Out-Null
+          #{"New-Item -Path C:\\Windows\\Temp\\kitchen\\config -ItemType Directory -Force | Out-Null" unless config[:override_package_config]}
+          if (!($env:Path | Select-String "Habitat")) {
+            $env:Path += ";C:\\ProgramData\\Habitat"
           }
-          $ServiceConfig = @"
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <appSettings>
-    <add key="debug" value="false" />
-    <add key="HAB_FEAT_IGNORE_SIGNALS" value="true" />
-    <add key="HAB_FEAT_INSTALL_HOOK" value="true" />
-    <add key="launcherArgs" value="--no-color #{supervisor_options}" />
-  </appSettings>
-</configuration>
-"@
-          $ServiceConfig | Out-File -encoding utf8 -FilePath C:/hab/svc/windows-service/HabService.dll.config
-          Start-Service -Name Habitat
-        }
-        PWSH
+          if (!(Get-Service -Name Habitat -ErrorAction Ignore)) {
+            hab license accept
+            Write-Output "Installing Habitat Windows Service"
+            hab pkg install core/windows-service
+            if ($(Get-Service -Name Habitat).Status -ne "Stopped") {
+              Stop-Service -Name Habitat
+            }
+            $HabSvcConfig = "c:\\hab\\svc\\windows-service\\HabService.dll.config"
+            [xml]$xmlDoc = Get-Content $HabSvcConfig
+            $obj = $xmlDoc.configuration.appSettings.add | where {$_.Key -eq "launcherArgs" }
+            $obj.value = "--no-color#{supervisor_options}"
+            $xmlDoc.Save($HabSvcConfig)
+            Start-Service -Name Habitat
+          }
+        WINDOWS_SERVICE_SETUP
       end
 
       def linux_install_service
-        <<-EOH
-        id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
-        rm -rf /tmp/kitchen
-        mkdir -p /tmp/kitchen/results
-        #{"mkdir -p /tmp/kitchen/config" unless config[:override_package_config]}
-        if [ -f /etc/systemd/system/hab-sup.service ]
-        then
-          echo "Hab-sup service already exists"
-        else
-          echo "Starting hab-sup service install"
-          hab license accept
-          if ! id -u hab > /dev/null 2>&1; then
-            echo "Adding hab user"
-            sudo -E groupadd hab
+        <<~LINUX_SERVICE_SETUP
+          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
+          rm -rf /tmp/kitchen
+          mkdir -p /tmp/kitchen/results
+          #{"mkdir -p /tmp/kitchen/config" unless config[:override_package_config]}
+          if [ -f /etc/systemd/system/hab-sup.service ]
+          then
+            echo "Hab-sup service already exists"
+          else
+            echo "Starting hab-sup service install"
+            hab license accept
+            if ! id -u hab > /dev/null 2>&1; then
+              echo "Adding hab user"
+              sudo -E groupadd hab
+            fi
+            if ! id -g hab > /dev/null 2>&1; then
+              echo "Adding hab group"
+              sudo -E useradd -g hab hab
+            fi
+            echo [Unit] | sudo tee /etc/systemd/system/hab-sup.service
+            echo Description=The Chef Habitat Supervisor | sudo tee -a /etc/systemd/system/hab-sup.service
+            echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service
+            echo Environment="HAB_BLDR_URL=#{config[:depot_url]}" | sudo tee -a /etc/systemd/system/hab-sup.service
+            echo Environment="HAB_LICENSE=#{config[:hab_license]}" | sudo tee -a /etc/systemd/system/hab-sup.service
+            echo "ExecStart=/bin/hab sup run #{supervisor_options}" | sudo tee -a /etc/systemd/system/hab-sup.service
+            echo [Install] | sudo tee -a /etc/systemd/system/hab-sup.service
+            echo WantedBy=default.target | sudo tee -a /etc/systemd/system/hab-sup.service
+            sudo -E systemctl daemon-reload
+            sudo -E systemctl start hab-sup
+            sudo -E systemctl enable hab-sup
           fi
-          if ! id -g hab > /dev/null 2>&1; then
-            echo "Adding hab group"
-            sudo -E useradd -g hab hab
-          fi
-          echo [Unit] | sudo tee /etc/systemd/system/hab-sup.service
-          echo Description=The Chef Habitat Supervisor | sudo tee -a /etc/systemd/system/hab-sup.service
-          echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service
-          echo Environment="HAB_BLDR_URL=#{config[:depot_url]}" | sudo tee -a /etc/systemd/system/hab-sup.service
-          echo Environment="HAB_LICENSE=#{config[:hab_license]}" | sudo tee -a /etc/systemd/system/hab-sup.service
-          echo "ExecStart=/bin/hab sup run #{supervisor_options}" | sudo tee -a /etc/systemd/system/hab-sup.service
-          echo [Install] | sudo tee -a /etc/systemd/system/hab-sup.service
-          echo WantedBy=default.target | sudo tee -a /etc/systemd/system/hab-sup.service
-          sudo -E systemctl daemon-reload
-          sudo -E systemctl start hab-sup
-          sudo -E systemctl enable hab-sup
-        fi
-        EOH
+        LINUX_SERVICE_SETUP
       end
 
       def resolve_results_directory
@@ -343,30 +325,30 @@ module Kitchen
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
         if windows_os?
-          <<-EOH
-          New-Item -Path c:\\hab\\user\\#{config[:package_name]}\\config -ItemType Directory -Force  | Out-Null
-          Copy-Item -Path #{File.join(File.join(config[:root_path], "config"), "user.toml")} -Destination c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml -Force
-          EOH
+          <<~PWSH
+            New-Item -Path c:\\hab\\user\\#{config[:package_name]}\\config -ItemType Directory -Force  | Out-Null
+            Copy-Item -Path #{File.join(File.join(config[:root_path], "config"), "user.toml")} -Destination c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml -Force
+          PWSH
         else
-          <<-EOH
+          <<~BASH
             sudo -E mkdir -p /hab/user/#{config[:package_name]}/config
             sudo -E cp #{File.join(File.join(config[:root_path], "config"), "user.toml")} /hab/user/#{config[:package_name]}/config/user.toml
-          EOH
+          BASH
         end
       end
 
       def remove_previous_user_toml
         if windows_os?
-          <<-REMOVE
-          if (Test-Path c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml) {
-            Remove-Item -Path c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml -Force
-          }
+          <<~REMOVE
+            if (Test-Path c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml) {
+              Remove-Item -Path c:\\hab\\user\\#{config[:package_name]}\\config\\user.toml -Force
+            }
           REMOVE
         else
-          <<-REMOVE
-          if [ -d "/hab/user/#{config[:package_name]}/config" ]; then
-            sudo -E find /hab/user/#{config[:package_name]}/config -name user.toml -delete
-          fi
+          <<~REMOVE
+            if [ -d "/hab/user/#{config[:package_name]}/config" ]; then
+              sudo -E find /hab/user/#{config[:package_name]}/config -name user.toml -delete
+            fi
           REMOVE
         end
       end
@@ -397,7 +379,6 @@ module Kitchen
         config[:package_name] = ident["name"]
         config[:package_version] = ident["version"]
         config[:package_release] = ident["release"]
-      
         File.join(File.join(config[:root_path], "results"), artifact_name)
       end
 
