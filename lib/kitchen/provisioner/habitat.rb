@@ -124,7 +124,7 @@ module Kitchen
           # TODO: This is a workaround for windows. The hart file sometimes gets copied to the
           # %TEMP%\kitchen instead of %TEMP%\kitchen\results.
           if windows_os?
-            target_pkg = target_pkg.gsub("results/", '') unless File.exists?(target_pkg)
+            target_pkg = target_pkg.gsub("results/", "") unless File.exist?(target_pkg)
           end
         else
           target_pkg = package_ident
@@ -311,6 +311,7 @@ module Kitchen
       def latest_artifact_name
         results_dir = resolve_results_directory
         return if results_dir.nil?
+
         if config[:install_latest_artifact]
           if config[:package_origin].nil? || config[:package_name].nil?
             raise UserError,
@@ -324,6 +325,7 @@ module Kitchen
 
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
+
         if windows_os?
           <<~PWSH
             New-Item -Path c:\\hab\\user\\#{config[:package_name]}\\config -ItemType Directory -Force  | Out-Null

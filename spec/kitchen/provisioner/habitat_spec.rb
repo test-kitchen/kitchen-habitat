@@ -170,10 +170,10 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#resolve_results_directory' do
+  describe "#resolve_results_directory" do
     # let(:directory) { 'dir.d' }
     # before(:each) { create_directory(directory) }
-  
+
     # it { expect(directory).to be_an_existing_directory }
     xit "returns the current path if it includes the results folder" do
     #   #config[:kitchen_root] = "/tmp/kitchen"
@@ -198,17 +198,17 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#copy_package_config_from_override_to_sandbox' do
+  describe "#copy_package_config_from_override_to_sandbox" do
     xit "should create a config folder in the sandbox" do
     end
   end
 
-  describe '#copy_results_to_sandbox' do
+  describe "#copy_results_to_sandbox" do
     xit "should create a results folder in the sandbox" do
     end
   end
 
-  describe '#full_user_toml_path' do
+  describe "#full_user_toml_path" do
     it "should return the local path to the user.toml" do
       config[:config_directory] = "configs"
       config[:user_toml_name] = "user.toml"
@@ -218,8 +218,8 @@ describe Kitchen::Provisioner::Habitat do
       expect(full_user_toml_path).to eq("/kroot/configs/user.toml")
     end
   end
-  
-  describe '#sandbox_user_toml_path' do
+
+  describe "#sandbox_user_toml_path" do
     xit "should return the sandbox path to the user.toml" do
       config[:config_directory] = "configs"
       config[:user_toml_name] = "user.toml"
@@ -230,17 +230,17 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#copy_user_toml_to_sandbox' do
+  describe "#copy_user_toml_to_sandbox" do
     xit "copy the user.toml to the sandbox" do
     end
   end
 
-  describe '#latest_artifact_name' do
+  describe "#latest_artifact_name" do
     xit "return the name of the most recent artifact" do
     end
   end
 
-  describe '#copy_user_toml_to_service_directory' do
+  describe "#copy_user_toml_to_service_directory" do
     describe "for windows operating systems" do
       before { platform.stubs(:os_type).returns("windows") }
 
@@ -272,7 +272,7 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#remove_previous_user_toml' do
+  describe "#remove_previous_user_toml" do
     describe "for windows operating systems" do
       before { platform.stubs(:os_type).returns("windows") }
 
@@ -308,7 +308,7 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#artifact_name_to_package_ident_regex' do
+  describe "#artifact_name_to_package_ident_regex" do
     xit "produce the package ident (origin/name/version/release from the artifact filename" do
       config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
       artifact_name_to_package_ident_regex = provisioner.send(
@@ -318,7 +318,7 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#package_ident' do
+  describe "#package_ident" do
     it "should assemble the full ident " do
       config[:package_origin] = "example"
       config[:package_name] = "package"
@@ -331,7 +331,7 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#get_artifact_name' do
+  describe "#get_artifact_name" do
     it "should resolve the target artifact name" do
       config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
       get_artifact_name = provisioner.send(
@@ -584,7 +584,7 @@ describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe '#service_options' do
+  describe "#service_options" do
     it "sets the --bind flag when config[:hab_sup_bind] is set with a single binding" do
       config[:hab_sup_bind] = ["database:database.default"]
       service_options = provisioner.send(
@@ -622,9 +622,6 @@ describe Kitchen::Provisioner::Habitat do
       )
       expect(service_options).not_to include("--group test")
     end
-
-
-
 
     it "sets the --topology flag when config[:service_topology] is set" do
       config[:service_topology] = "standalone"
@@ -670,7 +667,5 @@ describe Kitchen::Provisioner::Habitat do
       )
       expect(service_options).not_to include("--channel staging")
     end
-
-
   end
 end
