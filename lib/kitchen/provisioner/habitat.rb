@@ -45,6 +45,7 @@ module Kitchen
       default_config :service_topology, nil
       default_config :service_update_strategy, nil
       default_config :channel, "stable"
+      default_config :service_load_timeout, 300
 
       # local stuffs to copy
       default_config :results_directory, nil
