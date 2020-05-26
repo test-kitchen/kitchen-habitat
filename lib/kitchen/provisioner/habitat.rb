@@ -140,8 +140,11 @@ module Kitchen
             hab pkg install #{target_pkg} --channel #{config[:channel]} --force
             if (Test-Path -Path "$(hab pkg path #{target_ident})\\hooks\\run") {
               hab svc load #{target_ident} #{service_options} --force
+              $timer = 0
               Do {
+                if ($timer -gt #{config[:service_load_timeout]}){exit 1}
                 Start-Sleep -Seconds 1
+                $timer++
               } until( hab svc status | out-string -stream | select-string #{target_ident})
             }
           PWSH
@@ -156,9 +159,12 @@ module Kitchen
             if [ -f $(sudo hab pkg path #{target_ident})/hooks/run ]
               then
                 sudo -E hab svc load #{target_ident} #{service_options} --force
+                timer=0
                 until sudo -E hab svc status | grep #{target_ident}
                   do
+                    if [$timer -gt #{config[:service_load_timeout]}]; then exit 1; fi
                     sleep 1
+                    $timer++
                   done
             fi
           BASH
