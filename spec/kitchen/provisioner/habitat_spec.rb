@@ -9,14 +9,7 @@ require "kitchen/provisioner/habitat"
 require "kitchen/driver/dummy"
 require "kitchen/transport/dummy"
 require "kitchen/verifier/dummy"
-
-def wrap_command(code, left_pad_length = 10)
-  left_padded_code = code.map do |line|
-    line.rjust(line.length + left_pad_length)
-  end.join("\n")
-  command = "#{left_padded_code}\n"
-  command
-end
+require "fakefs/safe"
 
 describe Kitchen::Provisioner::Habitat do
   let(:logged_output)   { StringIO.new }
@@ -63,16 +56,16 @@ describe Kitchen::Provisioner::Habitat do
       windows_install_cmd = provisioner.send(
         :windows_install_cmd
       )
-      expected_code = [
-        "if ((Get-Command hab -ErrorAction Ignore).Path) {",
-        "  Write-Output \"Habitat CLI already installed.\"",
-        "} else {",
-        "  Set-ExecutionPolicy Bypass -Scope Process -Force",
-        "  $InstallScript = ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.ps1'))",
-        "  Invoke-Command -ScriptBlock ([scriptblock]::Create($InstallScript)) -ArgumentList stable, 1.5.29",
-        "}",
-      ]
-      expect(windows_install_cmd).to eq(wrap_command(expected_code, 0))
+      expected_code = <<~PWSH
+        if ((Get-Command hab -ErrorAction Ignore).Path) {
+          Write-Output "Habitat CLI already installed."
+        } else {
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          $InstallScript = ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.ps1'))
+          Invoke-Command -ScriptBlock ([scriptblock]::Create($InstallScript)) -ArgumentList #{config[:hab_channel]}, #{config[:hab_version]}
+        }
+      PWSH
+      expect(windows_install_cmd).to eq(expected_code)
     end
   end
 
@@ -82,16 +75,16 @@ describe Kitchen::Provisioner::Habitat do
       linux_install_cmd = provisioner.send(
         :linux_install_cmd
       )
-      expected_code = [
-        "if command -v hab >/dev/null 2>&1",
-        "then",
-        "  echo \"Habitat CLI already installed.\"",
-        "else",
-        "  curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'",
-        "  sudo -E bash /tmp/install.sh -v 1.5.29",
-        "fi",
-      ]
-      expect(linux_install_cmd).to eq(wrap_command(expected_code, 0))
+      expected_code = <<~BASH
+        if command -v hab >/dev/null 2>&1
+        then
+          echo "Habitat CLI already installed."
+        else
+          curl -o /tmp/install.sh 'https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh'
+          sudo -E bash /tmp/install.sh -v 1.5.29
+        fi
+      BASH
+      expect(linux_install_cmd).to eq(expected_code)
     end
   end
 
@@ -101,28 +94,28 @@ describe Kitchen::Provisioner::Habitat do
       windows_install_service = provisioner.send(
         :windows_install_service
       )
-      expected_code = [
-        "New-Item -Path C:\\Windows\\Temp\\kitchen -ItemType Directory -Force | Out-Null",
-        "New-Item -Path C:\\Windows\\Temp\\kitchen\\config -ItemType Directory -Force | Out-Null",
-        "if (!($env:Path | Select-String \"Habitat\")) {",
-        "  $env:Path += \";C:\\ProgramData\\Habitat\"",
-        "}",
-        "if (!(Get-Service -Name Habitat -ErrorAction Ignore)) {",
-        "  hab license accept",
-        "  Write-Output \"Installing Habitat Windows Service\"",
-        "  hab pkg install core/windows-service",
-        "  if ($(Get-Service -Name Habitat).Status -ne \"Stopped\") {",
-        "    Stop-Service -Name Habitat",
-        "  }",
-        "  $HabSvcConfig = \"c:\\hab\\svc\\windows-service\\HabService.dll.config\"",
-        "  [xml]$xmlDoc = Get-Content $HabSvcConfig",
-        "  $obj = $xmlDoc.configuration.appSettings.add | where {$_.Key -eq \"launcherArgs\" }",
-        "  $obj.value = \"--no-color --channel stable\"",
-        "  $xmlDoc.Save($HabSvcConfig)",
-        "  Start-Service -Name Habitat",
-        "}",
-      ]
-      expect(windows_install_service).to eq(wrap_command(expected_code, 0))
+      expected_code = <<~WINDOWS_SERVICE_SETUP
+        New-Item -Path C:\\Windows\\Temp\\kitchen -ItemType Directory -Force | Out-Null
+        New-Item -Path C:\\Windows\\Temp\\kitchen\\config -ItemType Directory -Force | Out-Null
+        if (!($env:Path | Select-String "Habitat")) {
+          $env:Path += ";C:\\ProgramData\\Habitat"
+        }
+        if (!(Get-Service -Name Habitat -ErrorAction Ignore)) {
+          hab license accept
+          Write-Output "Installing Habitat Windows Service"
+          hab pkg install core/windows-service
+          if ($(Get-Service -Name Habitat).Status -ne "Stopped") {
+            Stop-Service -Name Habitat
+          }
+          $HabSvcConfig = "c:\\hab\\svc\\windows-service\\HabService.dll.config"
+          [xml]$xmlDoc = Get-Content $HabSvcConfig
+          $obj = $xmlDoc.configuration.appSettings.add | where {$_.Key -eq "launcherArgs" }
+          $obj.value = "--no-color --channel stable"
+          $xmlDoc.Save($HabSvcConfig)
+          Start-Service -Name Habitat
+        }
+      WINDOWS_SERVICE_SETUP
+      expect(windows_install_service).to eq(expected_code)
     end
   end
 
@@ -134,187 +127,226 @@ describe Kitchen::Provisioner::Habitat do
       linux_install_service = provisioner.send(
         :linux_install_service
       )
-      expected_code = [
-        "id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1",
-        "rm -rf /tmp/kitchen",
-        "mkdir -p /tmp/kitchen/results",
-        "mkdir -p /tmp/kitchen/config",
-        "if [ -f /etc/systemd/system/hab-sup.service ]",
-        "then",
-        "  echo \"Hab-sup service already exists\"",
-        "else",
-        "  echo \"Starting hab-sup service install\"",
-        "  hab license accept",
-        "  if ! id -u hab > /dev/null 2>&1; then",
-        "    echo \"Adding hab user\"",
-        "    sudo -E groupadd hab",
-        "  fi",
-        "  if ! id -g hab > /dev/null 2>&1; then",
-        "    echo \"Adding hab group\"",
-        "    sudo -E useradd -g hab hab",
-        "  fi",
-        "  echo [Unit] | sudo tee /etc/systemd/system/hab-sup.service",
-        "  echo Description=The Chef Habitat Supervisor | sudo tee -a /etc/systemd/system/hab-sup.service",
-        "  echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service",
-        "  echo Environment=\"HAB_BLDR_URL=https://bldr.example.com\" | sudo tee -a /etc/systemd/system/hab-sup.service",
-        "  echo Environment=\"HAB_LICENSE=accept\" | sudo tee -a /etc/systemd/system/hab-sup.service",
-        "  echo \"ExecStart=/bin/hab sup run  --channel stable\" | sudo tee -a /etc/systemd/system/hab-sup.service",
-        "  echo [Install] | sudo tee -a /etc/systemd/system/hab-sup.service",
-        "  echo WantedBy=default.target | sudo tee -a /etc/systemd/system/hab-sup.service",
-        "  sudo -E systemctl daemon-reload",
-        "  sudo -E systemctl start hab-sup",
-        "  sudo -E systemctl enable hab-sup",
-        "fi",
-      ]
-      expect(linux_install_service).to eq(wrap_command(expected_code, 0))
+      expected_code = <<~LINUX_SERVICE_SETUP
+        id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
+        rm -rf /tmp/kitchen
+        mkdir -p /tmp/kitchen/results
+        mkdir -p /tmp/kitchen/config
+        if [ -f /etc/systemd/system/hab-sup.service ]
+        then
+          echo "Hab-sup service already exists"
+        else
+          echo "Starting hab-sup service install"
+          hab license accept
+          if ! id -u hab > /dev/null 2>&1; then
+            echo "Adding hab user"
+            sudo -E groupadd hab
+          fi
+          if ! id -g hab > /dev/null 2>&1; then
+            echo "Adding hab group"
+            sudo -E useradd -g hab hab
+          fi
+          echo [Unit] | sudo tee /etc/systemd/system/hab-sup.service
+          echo Description=The Chef Habitat Supervisor | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo Environment="HAB_BLDR_URL=https://bldr.example.com" | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo Environment="HAB_LICENSE=accept" | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo "ExecStart=/bin/hab sup run  --channel stable" | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo [Install] | sudo tee -a /etc/systemd/system/hab-sup.service
+          echo WantedBy=default.target | sudo tee -a /etc/systemd/system/hab-sup.service
+          sudo -E systemctl daemon-reload
+          sudo -E systemctl start hab-sup
+          sudo -E systemctl enable hab-sup
+        fi
+      LINUX_SERVICE_SETUP
+      expect(linux_install_service).to eq(expected_code)
     end
   end
 
   describe "#resolve_results_directory" do
-    # let(:directory) { 'dir.d' }
-    # before(:each) { create_directory(directory) }
+    it "returns the results_directory when specified in config" do
+      config[:results_directory] = "/kitchen/results"
+      resolve_results_directory = provisioner.send(
+        :resolve_results_directory
+      )
+      expect(resolve_results_directory).to eq("/kitchen/results")
+    end
+    it "returns the current path if it includes the results folder" do
+      results_dir = "/kroot/results"
+      FakeFS.activate!
+      FileUtils.mkdir_p(results_dir)
 
-    # it { expect(directory).to be_an_existing_directory }
-    xit "returns the current path if it includes the results folder" do
-    #   #config[:kitchen_root] = "/tmp/kitchen"
-    #   resolve_results_directory = provisioner.send(
-    #     :resolve_results_directory
-    #   )
-    #   expect(linux_install_service).to eq("/tmp/kitchen/results")
-    end
-    xit "returns the parent path if it includes the results folder" do
-      #   #config[:kitchen_root] = "/tmp/kitchen"
-      #   resolve_results_directory = provisioner.send(
-      #     :resolve_results_directory
-      #   )
-      #   expect(linux_install_service).to eq("/tmp/kitchen/results")
-    end
-    xit "returns the grandparent path if it includes the results folder" do
-      #   #config[:kitchen_root] = "/tmp/kitchen"
-      #   resolve_results_directory = provisioner.send(
-      #     :resolve_results_directory
-      #   )
-      #   expect(linux_install_service).to eq("/tmp/kitchen/results")
+      resolve_results_directory = provisioner.send(
+        :resolve_results_directory
+      )
+      expect(resolve_results_directory).to eq(results_dir)
+      FakeFS.deactivate!
+      FakeFS::FileSystem.clear
     end
   end
 
   describe "#copy_package_config_from_override_to_sandbox" do
-    xit "should create a config folder in the sandbox" do
+    it "should create a config folder in the sandbox" do
+      provisioner.create_sandbox
+      config[:config_directory] = "config"
+      config[:override_package_config] = true
+      FakeFS.activate!
+      FileUtils.mkdir_p("#{provisioner.sandbox_path}/config")
+
+      provisioner.send(
+        :copy_package_config_from_override_to_sandbox
+      )
+      expect(File).to exist("#{provisioner.sandbox_path}/config")
+      FakeFS.deactivate!
+      FakeFS::FileSystem.clear
+      provisioner.cleanup_sandbox
     end
   end
 
   describe "#copy_results_to_sandbox" do
-    xit "should create a results folder in the sandbox" do
+    it "should create a results folder in the sandbox" do
+      provisioner.create_sandbox
+      config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
+      FakeFS.activate!
+      FileUtils.mkdir_p("#{provisioner.sandbox_path}/results")
+      FileUtils.touch("#{provisioner.sandbox_path}/results/#{config[:artifact_name]}")
+
+      provisioner.send(
+        :copy_results_to_sandbox
+      )
+      expect(File).to exist("#{provisioner.sandbox_path}/results/#{config[:artifact_name]}")
+      FakeFS.deactivate!
+      FakeFS::FileSystem.clear
+      provisioner.cleanup_sandbox
     end
   end
 
   describe "#full_user_toml_path" do
-    it "should return the local path to the user.toml" do
-      config[:config_directory] = "configs"
-      config[:user_toml_name] = "user.toml"
-      full_user_toml_path = provisioner.send(
-        :full_user_toml_path
-      )
-      expect(full_user_toml_path).to eq("/kroot/configs/user.toml")
+    describe "for windows operating systems" do
+      before { allow(platform).to receive(:os_type).and_return("windows") }
+      it "should return the local path to the user.toml" do
+        config[:kitchen_root] = "c:/kitchen"
+        config[:config_directory] = "config"
+        config[:user_toml_name] = "user.toml"
+        full_user_toml_path = provisioner.send(
+          :full_user_toml_path
+        )
+        expect(full_user_toml_path).to eq("c:/kitchen/config/user.toml")
+      end
+    end
+
+    describe "for unix operating systems" do
+      before { allow(platform).to receive(:os_type).and_return("linux") }
+      it "should return the local path to the user.toml" do
+        config[:config_directory] = "config"
+        config[:user_toml_name] = "user.toml"
+        full_user_toml_path = provisioner.send(
+          :full_user_toml_path
+        )
+        expect(full_user_toml_path).to eq("/kroot/config/user.toml")
+      end
     end
   end
 
   describe "#sandbox_user_toml_path" do
-    xit "should return the sandbox path to the user.toml" do
+    it "should return the sandbox path to the user.toml" do
+      provisioner.create_sandbox
       config[:config_directory] = "configs"
       config[:user_toml_name] = "user.toml"
       sandbox_user_toml_path = provisioner.send(
         :sandbox_user_toml_path
       )
-      expect(sandbox_user_toml_path).to eq("/tmp/kitchen/configs/user.toml")
-    end
-  end
-
-  describe "#copy_user_toml_to_sandbox" do
-    xit "copy the user.toml to the sandbox" do
-    end
-  end
-
-  describe "#latest_artifact_name" do
-    xit "return the name of the most recent artifact" do
+      expect(sandbox_user_toml_path).to eq("#{provisioner.sandbox_path}/config/user.toml")
+      provisioner.cleanup_sandbox
     end
   end
 
   describe "#copy_user_toml_to_service_directory" do
     describe "for windows operating systems" do
-      before { platform.stubs(:os_type).returns("windows") }
+      before { allow(platform).to receive(:os_type).and_return("windows") }
 
-      xit "should copy the toml to svc dir on windows" do
+      it "should copy the toml to svc dir on windows" do
+        config[:kitchen_root] = "c:/kitchen"
+        config[:package_name] = "package"
+        config[:config_directory] = "config"
+        config[:user_toml_name] = "user.toml"
+
+        FakeFS.activate!
+        FileUtils.mkdir_p("c:/kitchen/config")
+        FileUtils.touch("c:/kitchen/config/user.toml")
+
         copy_user_toml_to_service_directory = provisioner.send(
           :copy_user_toml_to_service_directory
         )
-        expected_code = [
-          "New-Item -Path c:\\hab\\user\\package\\config -ItemType Directory -Force  | Out-Null",
-          "Copy-Item -Path #{File.join(File.join(config[:root_path], "config"), "user.toml")} -Destination c:\\hab\\user\\package\\config\\user.toml -Force",
-        ]
-        expect(copy_user_toml_to_service_directory).to eq(wrap_command(expected_code, 0))
+        expected_code = <<~PWSH
+          New-Item -Path c:\\hab\\user\\package\\config -ItemType Directory -Force  | Out-Null
+          Copy-Item -Path $env:TEMP\\kitchen/config/user.toml -Destination c:\\hab\\user\\package\\config\\user.toml -Force
+        PWSH
+        expect(copy_user_toml_to_service_directory).to eq(expected_code)
+        FakeFS.deactivate!
+        FakeFS::FileSystem.clear
       end
     end
 
     describe "for unix operating systems" do
-      before { platform.stubs(:os_type).returns("linux") }
+      before { allow(platform).to receive(:os_type).and_return("linux") }
 
-      xit "should copy the toml to svc dir on linux" do
+      it "should copy the toml to svc dir on linux" do
+        config[:package_name] = "package"
+        config[:config_directory] = "config"
+        config[:user_toml_name] = "user.toml"
+
+        FakeFS.activate!
+        FileUtils.mkdir_p("/kroot/config/")
+        FileUtils.touch("/kroot/config/user.toml")
+
         copy_user_toml_to_service_directory = provisioner.send(
           :copy_user_toml_to_service_directory
         )
-        expected_code = [
-          "sudo -E mkdir -p /hab/user/package/config",
-          "sudo -E cp #{File.join(File.join(config[:root_path], "config"), "user.toml")} /hab/user/package/config/user.toml",
-        ]
-        expect(copy_user_toml_to_service_directory).to eq(wrap_command(expected_code, 0))
+        expected_code = <<~BASH
+          sudo -E mkdir -p /hab/user/package/config
+          sudo -E cp /tmp/kitchen/config/user.toml /hab/user/package/config/user.toml
+        BASH
+        expect(copy_user_toml_to_service_directory).to eq(expected_code)
+        FakeFS.deactivate!
+        FakeFS::FileSystem.clear
       end
     end
   end
 
   describe "#remove_previous_user_toml" do
     describe "for windows operating systems" do
-      before { platform.stubs(:os_type).returns("windows") }
+      before { allow(platform).to receive(:os_type).and_return("windows") }
 
-      xit "should remove the toml on windows" do
+      it "should remove the toml on windows" do
         config[:package_name] = "package"
         remove_previous_user_toml = provisioner.send(
           :remove_previous_user_toml
         )
-        expected_code = [
-          "if (Test-Path c:\\hab\\user\\package\\config\\user.toml) {",
-          "  Remove-Item -Path c:\\hab\\user\\package\\config\\user.toml -Force",
-          "}",
-        ]
-        expect(remove_previous_user_toml).to eq(wrap_command(expected_code, 0))
+        expected_code = <<~PWSH
+          if (Test-Path c:\\hab\\user\\package\\config\\user.toml) {
+            Remove-Item -Path c:\\hab\\user\\package\\config\\user.toml -Force
+          }
+        PWSH
+        expect(remove_previous_user_toml).to eq(expected_code)
       end
     end
 
     describe "for unix operating systems" do
-      before { platform.stubs(:os_type).returns("linux") }
+      before { allow(platform).to receive(:os_type).and_return("linux") }
 
-      xit "should remove the toml on linux" do
+      it "should remove the toml on linux" do
         config[:package_name] = "package"
         remove_previous_user_toml = provisioner.send(
           :remove_previous_user_toml
         )
-        expected_code = [
-          "if [ -d \"/hab/user/package/config\" ]; then",
-          "  sudo -E find /hab/user/package/config -name user.toml -delete",
-          "fi",
-        ]
-        expect(remove_previous_user_toml).to eq(wrap_command(expected_code, 0))
+        expected_code = <<~BASH
+          if [ -d "/hab/user/package/config" ]; then
+            sudo -E find /hab/user/package/config -name user.toml -delete
+          fi
+        BASH
+        expect(remove_previous_user_toml).to eq(expected_code)
       end
-    end
-  end
-
-  describe "#artifact_name_to_package_ident_regex" do
-    xit "produce the package ident (origin/name/version/release from the artifact filename" do
-      config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
-      artifact_name_to_package_ident_regex = provisioner.send(
-        :artifact_name_to_package_ident_regex
-      )
-      expect(artifact_name_to_package_ident_regex.match(config[:artifact_name])).to include("origin:\"example\"")
     end
   end
 
@@ -332,12 +364,25 @@ describe Kitchen::Provisioner::Habitat do
   end
 
   describe "#get_artifact_name" do
-    it "should resolve the target artifact name" do
-      config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
-      get_artifact_name = provisioner.send(
-        :get_artifact_name
-      )
-      expect(get_artifact_name).to eq("/tmp/kitchen/results/example-package-0.1.0-20200406205105-x86_64-linux.hart")
+    describe "for windows operating systems" do
+      before { allow(platform).to receive(:os_type).and_return("windows") }
+      it "should resolve the target artifact name" do
+        config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
+        get_artifact_name = provisioner.send(
+          :get_artifact_name
+        )
+        expect(get_artifact_name).to eq("$env:TEMP\\kitchen/results/example-package-0.1.0-20200406205105-x86_64-linux.hart")
+      end
+    end
+    describe "for windows operating systems" do
+      before { allow(platform).to receive(:os_type).and_return("linux") }
+      it "should resolve the target artifact name" do
+        config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
+        get_artifact_name = provisioner.send(
+          :get_artifact_name
+        )
+        expect(get_artifact_name).to eq("/tmp/kitchen/results/example-package-0.1.0-20200406205105-x86_64-linux.hart")
+      end
     end
   end
 

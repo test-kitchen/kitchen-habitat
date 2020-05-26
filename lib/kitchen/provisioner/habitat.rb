@@ -119,6 +119,7 @@ module Kitchen
 
         # This little bit figures out what package should be loaded
         if config[:install_latest_artifact] || !config[:artifact_name].nil?
+          # TODO: throw error and bail if there's no artifacts in the results directory
           target_pkg = get_artifact_name
           target_ident = "#{config[:package_origin]}/#{config[:package_name]}"
           # TODO: This is a workaround for windows. The hart file sometimes gets copied to the
