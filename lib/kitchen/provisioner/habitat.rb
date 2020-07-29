@@ -116,7 +116,6 @@ module Kitchen
       end
 
       def run_command
-
         # This little bit figures out what package should be loaded
         if config[:install_latest_artifact] || !config[:artifact_name].nil?
           # TODO: throw error and bail if there's no artifacts in the results directory
