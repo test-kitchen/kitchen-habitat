@@ -70,7 +70,7 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
   * Defaults to `nil`
 * `results_directory`
   * Directory (relative to the location of the .kitchen.yml) containing package artifacts (harts) to copy to the remote system
-  * Defaults to checking the local directory for a `results` directory, then its parent (`../results`) and grandparent (`../../results`), which should accomodate most studio layouts.
+  * Defaults to checking the local directory for a `results` directory, then its parent (`../results`) and grandparent (`../../results`), which should accommodate most studio layouts.
 * `package_origin`
   * Origin for the package to run.
   * Defaults to `core`, or, if `artifact_name` is supplied, the `package_origin` will be parsed from the filename of the hart file.
@@ -102,6 +102,26 @@ You'll need the test-kitchen & kitchen-habitat gems installed in your system, al
   * Must specify `artifact_name` or `package_origin` and `package_name`
   * `package_version` and `package_release` will be ignored
   * Defaults to `false`
+
+### EAS Application Dashboard Settings
+
+* `event_stream_application`
+  * The name of your application.
+  * Defaults to `nil`
+* `event_stream_environment`
+  * The application environment for this supervisor.
+  * Defaults to `nil`
+* `event_stream_site`
+  * Describes the physical (for example, datacenter) or cloud-specific (for example, the AWS region) location where your services are deployed.
+  * Defaults to `nil`
+* `event_stream_url`
+  * The Chef Automate URL with port 4222 specified.
+  * Defaults to `nil`
+* `event_stream_token`
+  * Chef Automate Token
+  * Defaults to `nil`
+
+> NOTE: All 5 EAS settings are required for it to report to Automate.
 
 ## Examples
 
@@ -158,4 +178,115 @@ suites:
     driver:
       instance_name: kibana
       links: elastic:elastic
+```
+
+EAS Application Dashboard Example
+
+``` yaml
+---
+driver:
+  name: azurerm
+
+driver_config:
+  subscription_id: <%= ENV['subscription_id'] %>
+  location: <%= ENV['region'] %>
+  machine_size: "Standard_DS2_v2"
+
+verifier:
+  name: inspec
+
+provisioner:
+  name: habitat
+  hab_version: 'latest'
+  hab_license: accept
+  event_stream_application: Effortless
+  event_stream_environment: stable
+  event_stream_site: <%= ENV['region'] %>
+  event_stream_url: automate.example.com:4222
+  event_stream_token: <%= ENV['automate_token'] %>
+
+platforms:
+  - name: windows
+    driver:
+      image_urn: MicrosoftWindowsServer:WindowsServer:2019-Datacenter:latest
+      vm_name: windows
+    provisioner:
+      package_origin: <%= ENV['package_orgin'] %>
+      package_name: <%= ENV['package_name'] %>
+
+suites:
+  - name: default
+    verifier:
+      inspec_tests:
+        - tests
+```
+
+Latest Artifact example
+
+> This example assumes you've already done a build via hab studio.
+
+```yaml
+driver:
+  name: vagrant
+  customize:
+    memory: 2048
+
+verifier:
+  name: inspec
+
+provisioner:
+  name: habitat
+  hab_version: 'latest'
+  hab_license: accept
+
+platforms:
+  - name: wildfly-local
+    driver:
+      box: bento/ubuntu-16.04
+    provisioner:
+      package_origin: jmassardo
+      package_name: wildfly
+      results_directory: results
+      install_latest_artifact: true
+
+suites:
+  - name: default
+    verifier:
+      inspec_tests:
+        - tests
+```
+
+Apply `user.toml` Example
+
+> This example assumes that you have a `/configs/user.toml` in your project directory.
+
+```yaml
+driver:
+  name: vagrant
+  customize:
+    memory: 2048
+
+verifier:
+  name: inspec
+
+provisioner:
+  name: habitat
+  hab_version: 'latest'
+  hab_license: accept
+
+platforms:
+  - name: wildfly
+    driver:
+      box: bento/ubuntu-16.04
+    provisioner:
+      package_origin: jmassardo
+      package_name: wildfly
+      channel: unstable
+      config_directory: configs
+
+suites:
+  - name: default
+    verifier:
+      inspec_tests:
+        - tests
 ```
