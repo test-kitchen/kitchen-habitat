@@ -116,7 +116,6 @@ module Kitchen
       end
 
       def run_command
-        # TODO: This isn't waiting for the service to come up... should we wait? If so, how long?
 
         # This little bit figures out what package should be loaded
         if config[:install_latest_artifact] || !config[:artifact_name].nil?
