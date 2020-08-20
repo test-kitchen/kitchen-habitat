@@ -1,7 +1,7 @@
 require_relative "../../spec_helper"
 
 require "logger"
-require "stringio"
+require "stringio" unless defined?(StringIO)
 
 require "kitchen/configurable"
 require "kitchen/logging"
