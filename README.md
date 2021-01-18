@@ -1,5 +1,5 @@
-[![Gem Version](https://badge.fury.io/rb/kitchen-habitat.svg)](http://badge.fury.io/rb/kitchen-habitat)
-[![Build Status](https://github.com/test-kitchen/kitchen-habitat/workflows/CI/badge.svg?branch=master)](https://github.com/test-kitchen/kitchen-habitat/actions?query=workflow%3ACI+branch%3Amaster)
+[![Gem Version](https://badge.fury.io/rb/kitchen-habitat.svg)](https://badge.fury.io/rb/kitchen-habitat)
+[![CI](https://github.com/test-kitchen/kitchen-habitat/workflows/CI/badge.svg?branch=master)](https://github.com/test-kitchen/kitchen-habitat/actions?query=workflow%3ACI+branch%3Amaster)
 
 # kitchen-habitat
 
