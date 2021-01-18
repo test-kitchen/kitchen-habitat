@@ -22,8 +22,8 @@ Gem::Specification.new do |s|
     TBD
 
   EOF
-  
+
   s.required_ruby_version = ">= 2.5"
-  
+
   s.add_dependency "test-kitchen", ">= 1.4", "< 3"
 end
