@@ -14,7 +14,6 @@ require "fakefs/safe"
 describe Kitchen::Provisioner::Habitat do
   let(:logged_output)   { StringIO.new }
   let(:logger)          { Logger.new(logged_output) }
-  let(:lifecycle_hooks) { Kitchen::LifecycleHooks.new({}) }
   let(:config)          { { kitchen_root: "/kroot" } }
   let(:platform)        { Kitchen::Platform.new(name: "fooos-99") }
   let(:suite)           { Kitchen::Suite.new(name: "suitey") }
@@ -22,6 +21,7 @@ describe Kitchen::Provisioner::Habitat do
   let(:driver)          { Kitchen::Driver::Dummy.new }
   let(:transport)       { Kitchen::Transport::Dummy.new }
   let(:state_file)      { double("state_file") }
+  let(:lifecycle_hooks) { Kitchen::LifecycleHooks.new(config, state_file) }
 
   let(:provisioner_object) { Kitchen::Provisioner::Habitat.new(config) }
 
