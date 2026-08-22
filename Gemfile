@@ -3,11 +3,8 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in kitchen-habitat.gemspec
 gemspec
 
-group :development do
-  gem "fakefs"
-end
-
 group :test do
+  gem "fakefs"
   gem "rake", ">= 11.0"
   gem "rspec", "~> 3.2"
 end
