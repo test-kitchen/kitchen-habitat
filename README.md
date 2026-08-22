@@ -211,7 +211,7 @@ platforms:
       image_urn: MicrosoftWindowsServer:WindowsServer:2019-Datacenter:latest
       vm_name: windows
     provisioner:
-      package_origin: <%= ENV['package_orgin'] %>
+      package_origin: <%= ENV['package_origin'] %>
       package_name: <%= ENV['package_name'] %>
 
 suites:
