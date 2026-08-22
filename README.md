@@ -1,7 +1,7 @@
 # kitchen-habitat
 
 [![Gem Version](https://badge.fury.io/rb/kitchen-habitat.svg)](https://badge.fury.io/rb/kitchen-habitat)
-[![CI](https://github.com/test-kitchen/kitchen-habitat/workflows/CI/badge.svg?branch=main)](https://github.com/test-kitchen/kitchen-habitat/actions?query=workflow%3ACI+branch%3Amain)
+[![CI](https://github.com/test-kitchen/kitchen-habitat/actions/workflows/lint.yml/badge.svg)](https://github.com/test-kitchen/kitchen-habitat/actions/workflows/lint.yml)
 
 A Test Kitchen Provisioner for [Habitat](https://habitat.sh)
 
