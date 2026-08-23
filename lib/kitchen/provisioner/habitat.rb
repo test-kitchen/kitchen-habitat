@@ -321,7 +321,7 @@ module Kitchen
         if config[:install_latest_artifact]
           if config[:package_origin].nil? || config[:package_name].nil?
             raise UserError,
-                "You must specify a 'package_origin' and 'package_name' to use the 'install_latest_artifact' option"
+              "You must specify a 'package_origin' and 'package_name' to use the 'install_latest_artifact' option"
           end
         end
 
