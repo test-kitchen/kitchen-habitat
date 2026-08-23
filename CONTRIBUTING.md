@@ -74,9 +74,9 @@ almost no code, and it is easy to fix one while breaking the other.
 ## Documentation
 
 If you add, remove, or change a configuration option, update the configuration
-reference in `README.md` in the same pull request. An option that is accepted
-but not read belongs in the "Options that currently have no effect" table
-rather than being described as working.
+reference in `README.md` in the same pull request. An option that is declared
+in `default_config` but never read is a bug, not a documentation problem —
+wire it up or take it out rather than describing it as working.
 
 ## Submitting changes
 

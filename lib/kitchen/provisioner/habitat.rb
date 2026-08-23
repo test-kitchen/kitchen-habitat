@@ -3,8 +3,17 @@
 #
 # Copyright (C) 2017 Steven Murawski
 #
-# Licensed under the MIT License.
-# See LICENSE for more details
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 require "fileutils" unless defined?(FileUtils)
 require "pathname" unless defined?(Pathname)
@@ -39,12 +48,18 @@ module Kitchen
     class Habitat < Base
       kitchen_provisioner_api_version 2
 
+      # Origin of the supervisor package used when none is configured.
+      DEFAULT_SUP_ORIGIN = "core".freeze
+
+      # Name of the supervisor package used when none is configured.
+      DEFAULT_SUP_NAME = "hab-sup".freeze
+
       default_config :depot_url, nil
       default_config :hab_license, nil
       default_config :hab_version, "latest"
       default_config :hab_channel, "stable"
-      default_config :hab_sup_origin, "core"
-      default_config :hab_sup_name, "hab-sup"
+      default_config :hab_sup_origin, DEFAULT_SUP_ORIGIN
+      default_config :hab_sup_name, DEFAULT_SUP_NAME
       default_config :hab_sup_version, nil
       default_config :hab_sup_release, nil
       default_config :hab_sup_artifact_name, nil
@@ -293,7 +308,7 @@ module Kitchen
             $env:Path += ";C:\\ProgramData\\Habitat"
           }
           if (!(Get-Service -Name Habitat -ErrorAction Ignore)) {
-            hab license accept
+            hab license accept#{install_supervisor_command("  ")}
             Write-Output "Installing Habitat Windows Service"
             hab pkg install core/windows-service
             if ($(Get-Service -Name Habitat).Status -ne "Stopped") {
@@ -327,7 +342,7 @@ module Kitchen
             echo "Hab-sup service already exists"
           else
             echo "Starting hab-sup service install"
-            hab license accept
+            hab license accept#{install_supervisor_command("  ")}
             if ! id -u hab > /dev/null 2>&1; then
               echo "Adding hab user"
               sudo -E groupadd hab
@@ -399,17 +414,39 @@ module Kitchen
       #
       # @return [void]
       def copy_results_to_sandbox
-        return if config[:artifact_name].nil? && !config[:install_latest_artifact]
+        artifacts = artifacts_to_upload
+        return if artifacts.empty?
 
         results_dir = resolve_results_directory
         return if results_dir.nil?
 
         FileUtils.mkdir_p(File.join(sandbox_path, "results"))
-        FileUtils.cp(
-          File.join(results_dir, config[:install_latest_artifact] ? latest_artifact_name : config[:artifact_name]),
-          File.join(sandbox_path, "results"),
-          preserve: true
-        )
+        artifacts.each do |artifact|
+          FileUtils.cp(
+            File.join(results_dir, artifact),
+            File.join(sandbox_path, "results"),
+            preserve: true
+          )
+        end
+      end
+
+      # The +.hart+ filenames that need uploading.
+      #
+      # The service artifact under test, plus a custom supervisor artifact
+      # when one is configured. Both are read from the results directory.
+      #
+      # @return [Array<String>] artifact basenames, empty when none apply
+      def artifacts_to_upload
+        artifacts = []
+
+        if config[:install_latest_artifact]
+          artifacts << latest_artifact_name
+        elsif config[:artifact_name]
+          artifacts << config[:artifact_name]
+        end
+
+        artifacts << config[:hab_sup_artifact_name] if config[:hab_sup_artifact_name]
+        artifacts.compact.uniq
       end
 
       # Local path to the +user.toml+ to upload.
@@ -555,6 +592,66 @@ module Kitchen
         File.join(File.join(config[:root_path], "results"), artifact_name)
       end
 
+      # Package identifier for the supervisor to run.
+      #
+      # Built from the +hab_sup_*+ identity options, which
+      # {#finalize_config!} also fills in from +hab_sup_artifact_name+ when
+      # one is given. Trailing parts are omitted when unset, so the default
+      # is simply +core/hab-sup+.
+      #
+      # @return [String] e.g. +core/hab-sup+ or +core/hab-sup/1.6.652+
+      def hab_sup_ident
+        [
+          config[:hab_sup_origin],
+          config[:hab_sup_name],
+          config[:hab_sup_version],
+          config[:hab_sup_release],
+        ].compact.reject { |part| part.to_s.empty? }.join("/")
+      end
+
+      # Whether a supervisor other than the stock one was asked for.
+      #
+      # Only then is a supervisor package installed, so a run that does not
+      # configure one behaves exactly as before.
+      #
+      # @return [Boolean]
+      def custom_supervisor?
+        return true unless config[:hab_sup_artifact_name].nil?
+        return true unless config[:hab_sup_version].nil? && config[:hab_sup_release].nil?
+
+        config[:hab_sup_origin] != DEFAULT_SUP_ORIGIN || config[:hab_sup_name] != DEFAULT_SUP_NAME
+      end
+
+      # What +hab pkg install+ should be pointed at for the supervisor.
+      #
+      # A local artifact is installed from the path it was uploaded to;
+      # otherwise the package identifier is installed from the depot.
+      #
+      # @return [String] an artifact path or a package identifier
+      def supervisor_install_source
+        if config[:hab_sup_artifact_name]
+          File.join(config[:root_path], "results", config[:hab_sup_artifact_name])
+        else
+          hab_sup_ident
+        end
+      end
+
+      # Shell code installing the requested supervisor package.
+      #
+      # Returned with a leading newline so it can be appended to the previous
+      # line of a heredoc. That keeps the generated script free of a stray
+      # blank line on the far more common path where no custom supervisor is
+      # configured and this returns nothing at all.
+      #
+      # @param indent [String] indentation to match the surrounding script
+      # @return [String] the install command, or an empty string when the
+      #   stock supervisor is being used
+      def install_supervisor_command(indent = "")
+        return "" unless custom_supervisor?
+
+        "\n#{indent}hab pkg install #{supervisor_install_source} --force"
+      end
+
       # Builds the flag string passed to +hab sup run+.
       #
       # Only options that were actually set are emitted, so an unset option
@@ -565,6 +662,7 @@ module Kitchen
       def supervisor_options
         options = ""
         options += " --listen-ctl #{config[:hab_sup_listen_ctl]}" unless config[:hab_sup_listen_ctl].nil?
+        options += " --listen-http #{config[:hab_sup_listen_http]}" unless config[:hab_sup_listen_http].nil?
         options += " --listen-gossip #{config[:hab_sup_listen_gossip]}" unless config[:hab_sup_listen_gossip].nil?
         options += " --config-from #{File.join(config[:root_path], "config/")}" if config[:override_package_config]
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
