@@ -1,0 +1,9 @@
+--markup markdown
+--output-dir doc
+--readme README.md
+--title "kitchen-habitat"
+--protected
+--private
+lib/**/*.rb
+-
+LICENSE

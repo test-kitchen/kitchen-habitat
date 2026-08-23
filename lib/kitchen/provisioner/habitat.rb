@@ -12,7 +12,30 @@ require "kitchen/provisioner/base"
 require "kitchen/util"
 
 module Kitchen
+  # Test Kitchen's provisioner plugins.
   module Provisioner
+    # Test Kitchen provisioner that converges an instance with
+    # {https://habitat.sh Habitat}.
+    #
+    # A converge installs the +hab+ CLI, starts a supervisor, uploads any
+    # local artifact and configuration, then installs the package under test
+    # and loads it as a service. The instance itself is supplied by whichever
+    # Test Kitchen driver is configured; this provisioner only provisions.
+    #
+    # Configuration options fall into five groups:
+    #
+    # * *CLI* -- +hab_license+, +hab_version+, +hab_channel+, +depot_url+
+    # * *Supervisor* -- the +hab_sup_*+ options, which become +hab sup run+ flags
+    # * *Service* -- +package_*+, +channel+, +service_*+
+    # * *Local files* -- +artifact_name+, +install_latest_artifact+,
+    #   +results_directory+, +config_directory+, +user_toml_name+,
+    #   +override_package_config+
+    # * *Event stream* -- the +event_stream_*+ options, for Chef Automate
+    #
+    # See the README for the full reference, including the options that are
+    # currently accepted but not read.
+    #
+    # @see https://habitat.sh Habitat
     class Habitat < Base
       kitchen_provisioner_api_version 2
 
@@ -60,6 +83,18 @@ module Kitchen
       default_config :event_stream_url, nil
       default_config :event_stream_token, nil
 
+      # Normalizes the package identity options before Test Kitchen freezes
+      # the configuration.
+      #
+      # Three shorthands are expanded here so the rest of the provisioner can
+      # assume it has separate origin, name, version, and release values:
+      #
+      # * a +package_name+ given as a full identifier, e.g. +core/redis/4.0.14+
+      # * a +hab_sup_artifact_name+ +.hart+ filename
+      # * an +artifact_name+ +.hart+ filename
+      #
+      # @param instance [Kitchen::Instance] the instance being configured
+      # @return [self]
       def finalize_config!(instance)
         # Check to see if a package ident was specified for package name and be helpful
         unless config[:package_name].nil? || (config[:package_name] =~ %r{/}).nil?
@@ -84,6 +119,12 @@ module Kitchen
         super(instance)
       end
 
+      # Shell code that installs the +hab+ CLI on the instance.
+      #
+      # Idempotent: if +hab+ is already on the PATH the install is skipped, so
+      # this is safe to re-run against a converged machine.
+      #
+      # @return [String] platform-appropriate shell code, ready to execute
       def install_command
         if windows_os?
           wrap_shell_code(windows_install_cmd)
@@ -92,6 +133,13 @@ module Kitchen
         end
       end
 
+      # Shell code that installs and starts the Habitat supervisor.
+      #
+      # On Linux this writes a +hab-sup+ systemd unit and enables it. On
+      # Windows it installs +core/windows-service+ and patches its launcher
+      # arguments. Both paths are skipped when the supervisor already exists.
+      #
+      # @return [String] platform-appropriate shell code, ready to execute
       def init_command
         if windows_os?
           wrap_shell_code(windows_install_service)
@@ -100,6 +148,13 @@ module Kitchen
         end
       end
 
+      # Stages the local files the instance will need into the sandbox.
+      #
+      # Copies in the +.hart+ artifact under test and, when a
+      # +config_directory+ is configured, the +user.toml+ and any package
+      # configuration that overrides what is baked into the package.
+      #
+      # @return [void]
       def create_sandbox
         super
         copy_results_to_sandbox
@@ -107,6 +162,13 @@ module Kitchen
         copy_package_config_from_override_to_sandbox
       end
 
+      # Shell code run on the instance after the sandbox is uploaded but
+      # before {#run_command}.
+      #
+      # Replaces any +user.toml+ left over from a previous converge with the
+      # one just uploaded, so a changed +user.toml+ takes effect.
+      #
+      # @return [String] platform-appropriate shell code, ready to execute
       def prepare_command
         debug("Prepare command is running")
         wrap_shell_code <<~PREPARE
@@ -115,6 +177,15 @@ module Kitchen
         PREPARE
       end
 
+      # Shell code that installs the package under test and loads it as a
+      # service.
+      #
+      # The package is only loaded with +hab svc load+ if it ships a +run+
+      # hook, so library packages converge cleanly without a service. After
+      # loading, this polls +hab svc status+ until the service appears, giving
+      # up after +service_load_timeout+ seconds.
+      #
+      # @return [String] platform-appropriate shell code, ready to execute
       def run_command
         # This little bit figures out what package should be loaded
         if config[:install_latest_artifact] || !config[:artifact_name].nil?
@@ -172,6 +243,10 @@ module Kitchen
 
       private
 
+      # PowerShell that installs the +hab+ CLI from the official install
+      # script, honouring +hab_channel+ and +hab_version+.
+      #
+      # @return [String] PowerShell source
       def windows_install_cmd
         <<~PWSH
           if ((Get-Command hab -ErrorAction Ignore).Path) {
@@ -184,6 +259,12 @@ module Kitchen
         PWSH
       end
 
+      # Bash that installs the +hab+ CLI from the official install script.
+      #
+      # +hab_version+ is passed as +-v+ unless it is +"latest"+, which the
+      # install script treats as the default.
+      #
+      # @return [String] Bash source
       def linux_install_cmd
         version = " -v #{config[:hab_version]}" unless config[:hab_version].eql?("latest")
         <<~BASH
@@ -197,6 +278,13 @@ module Kitchen
         BASH
       end
 
+      # PowerShell that installs the Habitat Windows service and points its
+      # launcher at the configured supervisor options.
+      #
+      # The options cannot be passed on a command line here, so they are
+      # written into +HabService.dll.config+ before the service is started.
+      #
+      # @return [String] PowerShell source
       def windows_install_service
         <<~WINDOWS_SERVICE_SETUP
           New-Item -Path C:\\Windows\\Temp\\kitchen -ItemType Directory -Force | Out-Null
@@ -221,6 +309,13 @@ module Kitchen
         WINDOWS_SERVICE_SETUP
       end
 
+      # Bash that creates the +hab+ user and group, writes a +hab-sup+
+      # systemd unit, and starts it.
+      #
+      # +depot_url+ and +hab_license+ are passed to the supervisor as the
+      # +HAB_BLDR_URL+ and +HAB_LICENSE+ environment variables.
+      #
+      # @return [String] Bash source
       def linux_install_service
         <<~LINUX_SERVICE_SETUP
           id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
@@ -256,6 +351,13 @@ module Kitchen
         LINUX_SERVICE_SETUP
       end
 
+      # Locates the directory holding built +.hart+ artifacts.
+      #
+      # An explicit +results_directory+ wins. Otherwise +results+, then
+      # +../results+, then +../../results+ relative to the kitchen root are
+      # tried, which covers the usual +hab studio+ layouts.
+      #
+      # @return [String, nil] the directory, or nil if none was found
       def resolve_results_directory
         return config[:results_directory] unless config[:results_directory].nil?
 
@@ -272,6 +374,13 @@ module Kitchen
         end
       end
 
+      # Copies +config_directory+ into the sandbox so the supervisor can be
+      # pointed at it with +--config-from+.
+      #
+      # Does nothing unless +override_package_config+ is set and the directory
+      # exists.
+      #
+      # @return [void]
       def copy_package_config_from_override_to_sandbox
         return if config[:config_directory].nil?
         return unless config[:override_package_config]
@@ -283,6 +392,12 @@ module Kitchen
         FileUtils.copy_entry(local_config_dir, sandbox_config_dir)
       end
 
+      # Copies the +.hart+ under test into the sandbox.
+      #
+      # Does nothing unless +artifact_name+ or +install_latest_artifact+ asked
+      # for a local artifact.
+      #
+      # @return [void]
       def copy_results_to_sandbox
         return if config[:artifact_name].nil? && !config[:install_latest_artifact]
 
@@ -297,14 +412,28 @@ module Kitchen
         )
       end
 
+      # Local path to the +user.toml+ to upload.
+      #
+      # @return [String] path under the configured +config_directory+
       def full_user_toml_path
         File.join(File.join(config[:kitchen_root], config[:config_directory]), config[:user_toml_name])
       end
 
+      # Path the +user.toml+ is staged at inside the sandbox.
+      #
+      # Always named +user.toml+ regardless of +user_toml_name+, since that is
+      # the name Habitat expects on the instance.
+      #
+      # @return [String]
       def sandbox_user_toml_path
         File.join(File.join(sandbox_path, "config"), "user.toml")
       end
 
+      # Copies the configured +user.toml+ into the sandbox.
+      #
+      # Does nothing when no +config_directory+ is set or the file is absent.
+      #
+      # @return [void]
       def copy_user_toml_to_sandbox
         return if config[:config_directory].nil?
         return unless File.exist?(full_user_toml_path)
@@ -314,6 +443,14 @@ module Kitchen
         FileUtils.cp(full_user_toml_path, sandbox_user_toml_path)
       end
 
+      # Finds the most recently modified +.hart+ matching the configured
+      # origin and name.
+      #
+      # @return [String, nil] the artifact's basename, or nil when no results
+      #   directory could be resolved
+      # @raise [Kitchen::UserError] if +install_latest_artifact+ is set without
+      #   both +package_origin+ and +package_name+, which are what the
+      #   filename glob is built from
       def latest_artifact_name
         results_dir = resolve_results_directory
         return if results_dir.nil?
@@ -329,6 +466,11 @@ module Kitchen
         File.basename(artifact_path)
       end
 
+      # Shell code that installs the uploaded +user.toml+ into the service's
+      # +/hab/user+ configuration directory on the instance.
+      #
+      # @return [String, nil] shell source, or nil when there is no
+      #   +user.toml+ to install
       def copy_user_toml_to_service_directory
         return unless !config[:config_directory].nil? && File.exist?(full_user_toml_path)
 
@@ -345,6 +487,10 @@ module Kitchen
         end
       end
 
+      # Shell code that deletes a +user.toml+ left behind by an earlier
+      # converge, so a removed setting does not linger.
+      #
+      # @return [String] platform-appropriate shell source
       def remove_previous_user_toml
         if windows_os?
           <<~REMOVE
@@ -361,10 +507,24 @@ module Kitchen
         end
       end
 
+      # Pattern that splits a +.hart+ filename into its package identifier
+      # parts.
+      #
+      # Named captures: +origin+, +name+, +version+, +release+, +target+. For
+      # +core-redis-4.0.14-20180404215500-x86_64-linux.hart+ that yields origin
+      # +core+, name +redis+, version +4.0.14+, release +20180404215500+.
+      #
+      # @return [Regexp]
       def artifact_name_to_package_ident_regex
         /(?<origin>\w+)-(?<name>.*)-(?<version>(\d+)?(\.\d+)?(\.\d+)?(\.\d+)?)-(?<release>\d+)-(?<target>.*)\.hart$/
       end
 
+      # Builds the Habitat package identifier for the configured package.
+      #
+      # Trailing separators are trimmed, so an origin and name with no version
+      # or release yields +origin/name+ rather than +origin/name//+.
+      #
+      # @return [String] a package identifier such as +core/redis+
       def package_ident
         ident = "#{config[:package_origin]}/" \
                 "#{config[:package_name]}/" \
@@ -373,6 +533,11 @@ module Kitchen
         @pkg_ident = ident
       end
 
+      # Resolves which local artifact to install, and back-fills the package
+      # identity options from its filename.
+      #
+      # @return [String, nil] the artifact's path on the instance, or nil when
+      #   no local artifact was requested
       def get_artifact_name
         artifact_name = ""
         if config[:install_latest_artifact]
@@ -390,6 +555,13 @@ module Kitchen
         File.join(File.join(config[:root_path], "results"), artifact_name)
       end
 
+      # Builds the flag string passed to +hab sup run+.
+      #
+      # Only options that were actually set are emitted, so an unset option
+      # leaves Habitat's own default in place.
+      #
+      # @return [String] a leading-space-separated flag string, empty when
+      #   nothing is configured
       def supervisor_options
         options = ""
         options += " --listen-ctl #{config[:hab_sup_listen_ctl]}" unless config[:hab_sup_listen_ctl].nil?
@@ -411,6 +583,13 @@ module Kitchen
         options
       end
 
+      # Builds the flag string passed to +hab svc load+.
+      #
+      # A subset of {#supervisor_options}: the flags that belong to a service
+      # rather than to the supervisor process.
+      #
+      # @return [String] a leading-space-separated flag string, empty when
+      #   nothing is configured
       def service_options
         options = ""
         options += config[:hab_sup_bind].map { |b| " --bind #{b}" }.join(" ") if config[:hab_sup_bind].any?
