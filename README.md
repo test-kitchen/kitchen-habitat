@@ -453,4 +453,10 @@ documentation, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for
+details.
+
+> Note: the header comment in `lib/kitchen/provisioner/habitat.rb` claims the
+> MIT License, which contradicts both `LICENSE` and the gemspec. The Apache-2.0
+> terms in `LICENSE` are the authoritative ones; the stray header is tracked
+> separately.
