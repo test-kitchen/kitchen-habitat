@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/test-kitchen/kitchen-habitat/compare/kitchen-habitat/v0.12.2...kitchen-habitat/v0.13.0) (2026-08-23)
+
+
+### Features
+
+* make the hab_sup_* supervisor options actually work ([#90](https://github.com/test-kitchen/kitchen-habitat/issues/90)) ([b527bba](https://github.com/test-kitchen/kitchen-habitat/commit/b527bba19b1e19a1ab426c2dbc4170c2f742d467))
+
 ## [0.12.2](https://github.com/test-kitchen/kitchen-habitat/compare/kitchen-habitat-v0.12.1...kitchen-habitat/v0.12.2) (2026-08-23)
 
 

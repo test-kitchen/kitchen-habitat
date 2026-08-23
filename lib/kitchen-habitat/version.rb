@@ -3,6 +3,6 @@ module Kitchen
   # The kitchen-habitat plugin.
   module Habitat
     # The version of the kitchen-habitat gem.
-    VERSION = "0.12.2".freeze
+    VERSION = "0.13.0".freeze
   end
 end
