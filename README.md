@@ -1,163 +1,339 @@
 # kitchen-habitat
 
-[![Gem Version](https://badge.fury.io/rb/kitchen-habitat.svg)](https://badge.fury.io/rb/kitchen-habitat)
+[![Gem Version](https://img.shields.io/gem/v/kitchen-habitat.svg)](https://rubygems.org/gems/kitchen-habitat)
 [![CI](https://github.com/test-kitchen/kitchen-habitat/actions/workflows/lint.yml/badge.svg)](https://github.com/test-kitchen/kitchen-habitat/actions/workflows/lint.yml)
 
-A Test Kitchen Provisioner for [Habitat](https://habitat.sh)
+A [Test Kitchen](https://kitchen.ci/) provisioner for [Habitat](https://habitat.sh).
+
+Test Kitchen builds a throwaway machine, applies your configuration to it, runs
+your tests, and destroys it. This provisioner makes the "apply your
+configuration" step install a Habitat supervisor on that machine and load a
+Habitat service into it — so you can test the package you just built, on a real
+operating system, before you promote it.
+
+> This documentation uses [Cinc Workstation](https://cinc.sh/) and the `cinc`
+> commands throughout. Everything here works identically with Chef Workstation —
+> see [Using with Chef](#using-with-chef).
+>
+> Note that the `hab` CLI itself is not renamed: Habitat is the upstream
+> project, and `hab` is what you run on the instance either way.
+
+---
+
+## Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [Configuration reference](#configuration-reference)
+- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
+- [Using with Chef](#using-with-chef)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
 
 ## Requirements
 
-## Installation & Setup
+- Ruby 3.1 or newer (already satisfied if you use Cinc Workstation)
+- A Test Kitchen **driver** to supply the machine — this gem only provisions.
+  [kitchen-vagrant](https://github.com/test-kitchen/kitchen-vagrant),
+  [kitchen-docker](https://github.com/test-kitchen/kitchen-docker), or any
+  cloud driver will do.
+- A Habitat package to test. That is either a package already in
+  [Builder](https://bldr.habitat.sh/), or a local `.hart` artifact you built
+  with `hab studio`.
 
-You'll need the test-kitchen & kitchen-habitat gems installed in your system, along with kitchen-vagrant or some other suitable driver for test-kitchen.
+You do **not** need the `hab` CLI on the instance beforehand. The provisioner
+installs it, then installs and starts a supervisor, as part of `converge`.
 
-## Configuration Settings
+## Installation
 
-* `hab_license`: Habitat license acceptance type (for more information please read the [chef license documentation](https://docs.chef.io/chef_license_accept.html#habitat)).
-* `hab_version`: The version of habitat to be used in test kitchen.
+This provisioner ships with [Cinc
+Workstation](https://cinc.sh/start/workstation/), which is the simplest way to
+get Test Kitchen and its plugins in one package. It also ships with [Chef
+Workstation](https://www.chef.io/downloads/tools/workstation).
 
-### Depot settings
+To install it yourself, add it to your `Gemfile`:
 
-* `depot_url`
-  * Target Habitat Depot to use to install packages.
-  * Defaults to `nil` (which will use the default depot settings for the `hab` CLI from ~/.hab/etc/cli.toml).
+```ruby
+gem "kitchen-habitat"
+```
 
-### Supervisor Settings
+then `bundle install`. Or install the gem directly:
 
-* `hab_sup_origin`
-  * Package identification for the supervisor to use.
-  * Defaults to `core`, or, if `hab_sup_artifact_name` is supplied, the `hab_sup_origin` will be parsed from the filename of the hart file.
-* `hab_sup_name`
-  * Name of the supervisor package
-  * Defaults to `hab-sup`, or, if `hab_sup_artifact_name` is supplied, the `hab_sup_name` will be parsed from the filename of the hart file.
-* `hab_sup_version`
-  * Version number of `hab-sup` to run
-  * Defaults to `nil`, or, if `hab_sup_artifact_name` is supplied, the `hab_sup_version` will be parsed from the filename of the hart file.
-* `hab_sup_release`
-  * Release of the `hab-sup` package to run
-  * Defaults to `nil`, or, if `hab_sup_artifact_name` is supplied, the `hab_sup_release` will be parsed from the filename of the hart file.
-* `hab_sup_artifact_name`
-  * Artifact package name for a custom supervisor to run
-  * Used to upload and test a local supervisor.
-  * Package should be located in the `results_directory`
-  * Defaults to `nil
-* `hab_sup_listen_http`
-  * Port for the supervisor's sidecar to listen on.
-  * Defaults to `nil`
-* `hab_sup_listen_gossip`
-  * Port for the supervisor's gossip communication
-  * Defaults to `nil`
-* `hab_sup_group`
-  * Service group for the supervisor to belong do.
-  * Default is `default`
-* `hab_sup_bind`
-  * Service group for the supervisor to bind to.
-  * Default is `[]`
-* `hab_sup_peer`
-  * IP and port (e.g. `192.168.1.86:9010`) of the supervisor of which to connect to join the ring.
-  * Default is `[]`
-* `hab_sup_ring`
-  * Ring key name
-  * Default is `nil`
+```sh
+gem install kitchen-habitat
+```
 
-### Package Settings
+## Quick start
 
-* `artifact_name`
-  * Artifact package filename to install and run.
-  * Used to upload and test a local artifact.
-  * Package should be located in the `results_directory`
-  * Example - `core-jq-static-1.5-20170127185151-x86_64-linux.hart`
-  * Defaults to `nil`
-* `results_directory`
-  * Directory (relative to the location of the .kitchen.yml) containing package artifacts (harts) to copy to the remote system
-  * Defaults to checking the local directory for a `results` directory, then its parent (`../results`) and grandparent (`../../results`), which should accommodate most studio layouts.
-* `package_origin`
-  * Origin for the package to run.
-  * Defaults to `core`, or, if `artifact_name` is supplied, the `package_origin` will be parsed from the filename of the hart file.
-* `package_name`
-  * Package name for the supervisor to run.
-  * Defaults to the suite name or, if `artifact_name` is supplied, the `package_name` will be parsed from the filename of the hart file.
-* `package_version`
-  * Package version of the package to be run.
-  * Defaults to `nil` or if `artifact_name` is supplied, the `package_version` will be parsed from the filename of the hart file.
-* `package_release`
-  * Package release of the package to be run.
-  * Defaults to `nil` or if `artifact_name` is supplied, the `package_release` will be parsed from the filename of the hart file.
-* `service_topology`
-  * The topology for the service to run in.  Valid values are `nil`, `standalone`, `leader`
-  * Defaults to `nil` which is `standalone`
-* `service_update_strategy`
-  * Describes how package updates are to be applied.  Valid values are `nil`, `at-once`, `rolling`.
-  * Default is `nil`, which does not check for package updates.
-* `config_directory`
-  * Directory containing a user.toml or/and a default.toml, hooks, and configuration files to be passed to the service under test.
-  * Defaults to `nil`
-* `override_package_config`
-  * Tell the supervisor to load the the configuration files and hooks from `config_directory` instead of what was packaged with the service.  (Uses `--config-from` via the `hab-sup` CLI.)
-* `user_toml_name`
-  * Name of the file to be used as the user.toml for the service under test.
-  * Defaults to `user.toml`
-* `install_latest_artifact`
-  * Choose to install latest artifact.
-  * Must specify `artifact_name` or `package_origin` and `package_name`
-  * `package_version` and `package_release` will be ignored
-  * Defaults to `false`
-
-### EAS Application Dashboard Settings
-
-* `event_stream_application`
-  * The name of your application.
-  * Defaults to `nil`
-* `event_stream_environment`
-  * The application environment for this supervisor.
-  * Defaults to `nil`
-* `event_stream_site`
-  * Describes the physical (for example, datacenter) or cloud-specific (for example, the AWS region) location where your services are deployed.
-  * Defaults to `nil`
-* `event_stream_url`
-  * The Chef Automate URL with port 4222 specified.
-  * Defaults to `nil`
-* `event_stream_token`
-  * Chef Automate Token
-  * Defaults to `nil`
-
-> NOTE: All 5 EAS settings are required for it to report to Automate.
-
-## Examples
-
-Run the core-redis package
+The smallest useful `kitchen.yml` names a driver for the machine, this
+provisioner, and the package you want to run:
 
 ```yaml
+---
 driver:
   name: vagrant
 
 provisioner:
   name: habitat
-  hab_sup_origin: core
-  hab_sup_name: sup
+  hab_license: accept
   package_origin: core
   package_name: redis
 
+verifier:
+  name: cinc_auditor
+
 platforms:
-  - name: ubuntu-16.04
+  - name: ubuntu-22.04
 
 suites:
   - name: default
 ```
 
-Two node: elasticsearch and kibana
+Then run the full cycle:
+
+```sh
+cinc kitchen test
+```
+
+Or step through it:
+
+```sh
+cinc kitchen create    # build the machine
+cinc kitchen converge  # install hab, start the supervisor, load the service
+cinc kitchen verify    # run your tests
+cinc kitchen destroy   # tear the machine down
+```
+
+> `hab_license: accept` is required for the supervisor to start on Linux. See
+> the [Chef license
+> documentation](https://docs.chef.io/chef_license_accept.html#habitat).
+
+## How it works
+
+A `converge` runs four steps in order:
+
+1. **Install the `hab` CLI.** If `hab` is already on the machine, this is
+   skipped. Otherwise the official install script is downloaded and run —
+   `install.sh` on Linux, `install.ps1` on Windows.
+2. **Install and start a supervisor.** On Linux a `hab-sup` systemd unit is
+   written and enabled. On Windows the `core/windows-service` package is
+   installed and the Habitat service is started. Supervisor flags come from the
+   `hab_sup_*` and `event_stream_*` options.
+3. **Copy your local files into the sandbox.** A `.hart` artifact from your
+   results directory, and a `user.toml` plus any config files from
+   `config_directory`, are staged onto the machine.
+4. **Install and load the service.** The package is installed with `hab pkg
+   install`, then loaded with `hab svc load` if it has a `run` hook. The
+   provisioner then waits for the service to appear in `hab svc status`, giving
+   up after `service_load_timeout` seconds.
+
+Because step 4 only loads packages that ship a `run` hook, a package that is a
+library or a build-time dependency converges successfully without a service
+being started.
+
+## Configuration reference
+
+All options below are set under the `provisioner:` key in `kitchen.yml`, and
+can be overridden per-platform or per-suite.
+
+### Habitat CLI
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `hab_license` | `nil` | Set to `accept` to accept the Habitat license. The supervisor will not start on Linux without it. |
+| `hab_version` | `"latest"` | Version of the `hab` CLI to install. On Linux, any value other than `latest` is passed to the install script as `-v <version>`. |
+| `hab_channel` | `"stable"` | Release channel the `hab` CLI is installed from. **Windows only** — the Linux install script does not take a channel. |
+| `depot_url` | `nil` | Habitat Builder (depot) URL to install packages from, exported to the supervisor as `HAB_BLDR_URL`. **Linux only.** When unset, the `hab` CLI's own default from `~/.hab/etc/cli.toml` applies. |
+
+### Supervisor
+
+These map to `hab sup run` flags on the supervisor the provisioner starts.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `hab_sup_peer` | `[]` | List of supervisors to peer with to join a ring, as `host` or `host:port`, e.g. `192.168.1.86:9010`. Each becomes a `--peer`. |
+| `hab_sup_bind` | `[]` | List of service bindings, as `name:service.group`, e.g. `database:postgresql.default`. Each becomes a `--bind`. |
+| `hab_sup_group` | `nil` | Service group the supervisor belongs to (`--group`). When unset the flag is not passed and Habitat's own default, `default`, applies. |
+| `hab_sup_ring` | `nil` | Ring key name (`--ring`). |
+| `hab_sup_listen_gossip` | `nil` | Address and port for gossip traffic (`--listen-gossip`), e.g. `0.0.0.0:9638`. |
+| `hab_sup_listen_ctl` | `nil` | Address and port for the control gateway (`--listen-ctl`), e.g. `0.0.0.0:9632`. |
+
+### Service
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `package_origin` | `"core"` | Origin of the package to run. Overridden if `artifact_name` or a fully-qualified `package_name` is given. |
+| `package_name` | `nil` | Name of the package to run. **Required** unless it is supplied via `artifact_name` or `install_latest_artifact`. May be given as a full identifier — `core/redis/4.0.14` is split into origin, name, and version for you. |
+| `package_version` | `nil` | Version of the package to run. |
+| `package_release` | `nil` | Release of the package to run. |
+| `channel` | `"stable"` | Channel the *package* is installed from and updated against (`hab pkg install --channel`, `hab svc load --channel`). Distinct from `hab_channel`, which is about the CLI. |
+| `service_topology` | `nil` | Service topology (`--topology`). Valid values are `standalone` and `leader`. Unset means `standalone`. |
+| `service_update_strategy` | `nil` | Update strategy (`--strategy`). Valid values are `at-once` and `rolling`. Unset means updates are not checked for. |
+| `service_load_timeout` | `300` | Seconds to wait for the service to show up in `hab svc status` before failing the converge. |
+
+### Local artifacts and config
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `artifact_name` | `nil` | Filename of a local `.hart` to upload and run, e.g. `core-jq-static-1.5-20170127185151-x86_64-linux.hart`. Origin, name, version, and release are parsed from the filename. The file must be in the results directory. |
+| `install_latest_artifact` | `false` | Upload and run the newest `.hart` in the results directory matching `package_origin` and `package_name`. Both of those must be set. `package_version` and `package_release` are ignored. |
+| `results_directory` | *auto-detected* | Directory holding built `.hart` artifacts, relative to `kitchen.yml`. When unset, `results`, `../results`, and `../../results` are tried in that order, which covers the usual `hab studio` layouts. |
+| `config_directory` | `nil` | Directory holding a `user.toml`, and optionally `default.toml`, hooks, and config files, to ship to the service under test. Relative to `kitchen.yml`. |
+| `user_toml_name` | `"user.toml"` | Name of the file in `config_directory` to install as the service's `user.toml`. Lets one directory hold several, e.g. `user-ha.toml`. |
+| `override_package_config` | `false` | Load configuration and hooks from `config_directory` instead of the ones baked into the package, via the supervisor's `--config-from`. |
+
+### Event stream (Chef Automate)
+
+Reports supervisor and service events to a Chef Automate Application Dashboard.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `event_stream_application` | `nil` | Application name to report under. |
+| `event_stream_environment` | `nil` | Application environment for this supervisor. |
+| `event_stream_site` | `nil` | Where the services are deployed — a datacenter, or a cloud region. |
+| `event_stream_url` | `nil` | Chef Automate URL including port 4222, e.g. `automate.example.com:4222`. |
+| `event_stream_token` | `nil` | Chef Automate API token. |
+
+> All five must be set for the supervisor to report to Automate. Setting only
+> some of them passes incomplete flags and the supervisor will fail to start.
+
+### Options that currently have no effect
+
+These are accepted but never read by the provisioner. They are listed so you
+know not to rely on them, and are tracked for removal or repair:
+
+| Option | Notes |
+| --- | --- |
+| `hab_sup_listen_http` | Declared, but never passed to the supervisor. The HTTP gateway listens on its default address regardless. |
+| `hab_sup_origin` | Only ever written to, never read. |
+| `hab_sup_name` | Only ever written to, never read. |
+| `hab_sup_version` | Only ever written to, never read. |
+| `hab_sup_release` | Only ever written to, never read. |
+| `hab_sup_artifact_name` | Parsed into the four options above, which are themselves unused, so supplying a custom supervisor artifact does not currently change which supervisor runs. |
+
+## Examples
+
+### Run a package from Builder
 
 ```yaml
+---
+driver:
+  name: vagrant
+
+provisioner:
+  name: habitat
+  hab_license: accept
+  package_origin: core
+  package_name: redis
+
+verifier:
+  name: cinc_auditor
+
+platforms:
+  - name: ubuntu-22.04
+
+suites:
+  - name: default
+```
+
+### Test the artifact you just built
+
+Assumes you have already run a build in `hab studio`, so a `.hart` is sitting
+in `results/`.
+
+```yaml
+---
+driver:
+  name: vagrant
+  customize:
+    memory: 2048
+
+provisioner:
+  name: habitat
+  hab_license: accept
+  package_origin: mycompany
+  package_name: wildfly
+  results_directory: results
+  install_latest_artifact: true
+
+verifier:
+  name: cinc_auditor
+
+platforms:
+  - name: ubuntu-22.04
+
+suites:
+  - name: default
+    verifier:
+      inspec_tests:
+        - tests
+```
+
+To pin an exact artifact instead of taking the newest, swap
+`install_latest_artifact` for `artifact_name`:
+
+```yaml
+provisioner:
+  name: habitat
+  hab_license: accept
+  results_directory: results
+  artifact_name: mycompany-wildfly-26.1.1-20240115194501-x86_64-linux.hart
+```
+
+### Supply a `user.toml`
+
+Assumes a `configs/user.toml` next to your `kitchen.yml`.
+
+```yaml
+---
+driver:
+  name: vagrant
+
+provisioner:
+  name: habitat
+  hab_license: accept
+  package_origin: mycompany
+  package_name: wildfly
+  channel: unstable
+  config_directory: configs
+
+verifier:
+  name: cinc_auditor
+
+platforms:
+  - name: ubuntu-22.04
+
+suites:
+  - name: default
+```
+
+To have the supervisor use the hooks and config files from that directory
+rather than the ones inside the package, add `override_package_config: true`.
+
+### Two services bound together
+
+One suite per service, with the second peering to and binding against the
+first. This example uses the Docker driver so the containers can be linked.
+
+```yaml
+---
 driver:
   name: docker
 
 provisioner:
   name: habitat
-  hab_sup_origin: core
-  hab_sup_name: sup
+  hab_license: accept
+
+verifier:
+  name: cinc_auditor
 
 platforms:
-  - name: ubuntu-16.04
+  - name: ubuntu-22.04
 
 suites:
   - name: elasticsearch
@@ -180,39 +356,39 @@ suites:
       links: elastic:elastic
 ```
 
-EAS Application Dashboard Example
+### Report to a Chef Automate dashboard
 
-``` yaml
+```yaml
 ---
 driver:
   name: azurerm
 
 driver_config:
-  subscription_id: <%= ENV['subscription_id'] %>
-  location: <%= ENV['region'] %>
-  machine_size: "Standard_DS2_v2"
-
-verifier:
-  name: inspec
+  subscription_id: <%= ENV["subscription_id"] %>
+  location: <%= ENV["region"] %>
+  machine_size: Standard_DS2_v2
 
 provisioner:
   name: habitat
-  hab_version: 'latest'
   hab_license: accept
+  hab_version: latest
   event_stream_application: Effortless
   event_stream_environment: stable
-  event_stream_site: <%= ENV['region'] %>
+  event_stream_site: <%= ENV["region"] %>
   event_stream_url: automate.example.com:4222
-  event_stream_token: <%= ENV['automate_token'] %>
+  event_stream_token: <%= ENV["automate_token"] %>
+
+verifier:
+  name: cinc_auditor
 
 platforms:
   - name: windows
     driver:
-      image_urn: MicrosoftWindowsServer:WindowsServer:2019-Datacenter:latest
+      image_urn: MicrosoftWindowsServer:WindowsServer:2022-Datacenter:latest
       vm_name: windows
     provisioner:
-      package_origin: <%= ENV['package_origin'] %>
-      package_name: <%= ENV['package_name'] %>
+      package_origin: <%= ENV["package_origin"] %>
+      package_name: <%= ENV["package_name"] %>
 
 suites:
   - name: default
@@ -221,72 +397,60 @@ suites:
         - tests
 ```
 
-Latest Artifact example
+## Troubleshooting
 
-> This example assumes you've already done a build via hab studio.
+**The converge hangs, then fails after five minutes.**
+The service never appeared in `hab svc status`. Usually the package has no
+`run` hook, or it crashed on startup. Run `cinc kitchen login` and check `hab
+svc status` and `journalctl -u hab-sup` (Linux) or the Habitat service's log
+(Windows). Raise `service_load_timeout` only if the service is genuinely slow
+to start.
 
-```yaml
-driver:
-  name: vagrant
-  customize:
-    memory: 2048
+**`Habitat license not accepted`, and the supervisor never starts.**
+Set `hab_license: accept` in your provisioner config.
 
-verifier:
-  name: inspec
+**`You must specify a 'package_origin' and 'package_name' to use the
+'install_latest_artifact' option`.**
+`install_latest_artifact` finds the newest `.hart` by matching
+`<package_origin>-<package_name>-*.hart`, so it needs both to know what to look
+for.
 
-provisioner:
-  name: habitat
-  hab_version: 'latest'
-  hab_license: accept
+**The `.hart` is not found, or the wrong one is uploaded.**
+Check `results_directory`. Auto-detection only looks in `results`,
+`../results`, and `../../results` relative to `kitchen.yml`; anywhere else must
+be set explicitly.
 
-platforms:
-  - name: wildfly-local
-    driver:
-      box: bento/ubuntu-16.04
-    provisioner:
-      package_origin: jmassardo
-      package_name: wildfly
-      results_directory: results
-      install_latest_artifact: true
+**Nothing changes when I set `hab_sup_artifact_name`.**
+That option, and the `hab_sup_*` package identity options it populates, are not
+currently wired up. See [Options that currently have no
+effect](#options-that-currently-have-no-effect).
 
-suites:
-  - name: default
-    verifier:
-      inspec_tests:
-        - tests
-```
+**A bind fails with an unsatisfied service group.**
+`hab_sup_bind` entries are `name:service.group`. The bound service must already
+be running and reachable — check that `hab_sup_peer` points at it and that the
+network between the two machines allows the gossip port.
 
-Apply `user.toml` Example
+## Using with Chef
 
-> This example assumes that you have a `/configs/user.toml` in your project directory.
+Everything above works unchanged with Chef Workstation. Substitute the
+commands:
 
-```yaml
-driver:
-  name: vagrant
-  customize:
-    memory: 2048
+| Cinc | Chef |
+| --- | --- |
+| `cinc kitchen test` | `chef kitchen test` (or plain `kitchen test`) |
+| `cinc_auditor` verifier | `inspec` verifier |
 
-verifier:
-  name: inspec
+The provisioner name is `habitat` either way, and the `hab` CLI is the same
+program in both cases.
 
-provisioner:
-  name: habitat
-  hab_version: 'latest'
-  hab_license: accept
+## Contributing
 
-platforms:
-  - name: wildfly
-    driver:
-      box: bento/ubuntu-16.04
-    provisioner:
-      package_origin: jmassardo
-      package_name: wildfly
-      channel: unstable
-      config_directory: configs
+Bug reports and pull requests are welcome on
+[GitHub](https://github.com/test-kitchen/kitchen-habitat).
 
-suites:
-  - name: default
-    verifier:
-      inspec_tests:
-        - tests
-```
+For how to set up a development environment, run the tests, and generate the
+documentation, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Licensed under the MIT License. See [LICENSE](LICENSE) for details.
