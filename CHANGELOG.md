@@ -1,3 +1,12 @@
+# Changelog
+
+## [0.12.2](https://github.com/test-kitchen/kitchen-habitat/compare/kitchen-habitat-v0.12.1...kitchen-habitat/v0.12.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* bump tk dep to allow tk 4 ([#80](https://github.com/test-kitchen/kitchen-habitat/issues/80)) ([cec37b6](https://github.com/test-kitchen/kitchen-habitat/commit/cec37b69ebea09e636dbfb7e557c1cf63fc1a22c))
+
 ## Unreleased
 
 * Optimize our requires ([86c4c66](https://github.com/test-kitchen/kitchen-habitat/commit/86c4c66))
