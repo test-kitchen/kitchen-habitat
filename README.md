@@ -162,6 +162,7 @@ These map to `hab sup run` flags on the supervisor the provisioner starts.
 | `hab_sup_ring` | `nil` | Ring key name (`--ring`). |
 | `hab_sup_listen_gossip` | `nil` | Address and port for gossip traffic (`--listen-gossip`), e.g. `0.0.0.0:9638`. |
 | `hab_sup_listen_ctl` | `nil` | Address and port for the control gateway (`--listen-ctl`), e.g. `0.0.0.0:9632`. |
+| `hab_sup_listen_http` | `nil` | Address and port for the HTTP gateway (`--listen-http`), e.g. `0.0.0.0:9631`. |
 
 ### Service
 
@@ -202,19 +203,27 @@ Reports supervisor and service events to a Chef Automate Application Dashboard.
 > All five must be set for the supervisor to report to Automate. Setting only
 > some of them passes incomplete flags and the supervisor will fail to start.
 
-### Options that currently have no effect
+### Choosing the supervisor
 
-These are accepted but never read by the provisioner. They are listed so you
-know not to rely on them, and are tracked for removal or repair:
+By default the stock supervisor that ships with the `hab` CLI is used, and
+nothing extra is installed. Setting any of these makes the provisioner install
+the supervisor you asked for before starting it.
 
-| Option | Notes |
-| --- | --- |
-| `hab_sup_listen_http` | Declared, but never passed to the supervisor. The HTTP gateway listens on its default address regardless. |
-| `hab_sup_origin` | Only ever written to, never read. |
-| `hab_sup_name` | Only ever written to, never read. |
-| `hab_sup_version` | Only ever written to, never read. |
-| `hab_sup_release` | Only ever written to, never read. |
-| `hab_sup_artifact_name` | Parsed into the four options above, which are themselves unused, so supplying a custom supervisor artifact does not currently change which supervisor runs. |
+| Option | Default | Description |
+| --- | --- | --- |
+| `hab_sup_origin` | `"core"` | Origin of the supervisor package. |
+| `hab_sup_name` | `"hab-sup"` | Name of the supervisor package. |
+| `hab_sup_version` | `nil` | Version of the supervisor package to pin. |
+| `hab_sup_release` | `nil` | Release of the supervisor package to pin. |
+| `hab_sup_artifact_name` | `nil` | Filename of a local supervisor `.hart` to upload and run, e.g. `core-hab-sup-1.6.652-20240115194501-x86_64-linux.hart`. Origin, name, version, and release are parsed from the filename, and the file must be in the results directory. |
+
+These four identity options combine into a package identifier — `core/hab-sup`,
+`core/hab-sup/1.6.652`, and so on — which is installed with `hab pkg install`.
+When `hab_sup_artifact_name` is given instead, that artifact is uploaded
+alongside your service artifact and installed from the path it lands at.
+
+> Leave all five unset and the converge is unchanged: no supervisor package is
+> installed and the one bundled with the `hab` CLI is used, exactly as before.
 
 ## Examples
 
@@ -420,10 +429,11 @@ Check `results_directory`. Auto-detection only looks in `results`,
 `../results`, and `../../results` relative to `kitchen.yml`; anywhere else must
 be set explicitly.
 
-**Nothing changes when I set `hab_sup_artifact_name`.**
-That option, and the `hab_sup_*` package identity options it populates, are not
-currently wired up. See [Options that currently have no
-effect](#options-that-currently-have-no-effect).
+**My custom supervisor is not being used.**
+Check that `hab_sup_artifact_name` names a file that is actually in the results
+directory — see `results_directory`. If you pinned a version or release
+instead, confirm that identifier exists in the depot; the converge fails at
+`hab pkg install` when it does not.
 
 **A bind fails with an unsatisfied service group.**
 `hab_sup_bind` entries are `name:service.group`. The bound service must already
@@ -455,8 +465,3 @@ documentation, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for
 details.
-
-> Note: the header comment in `lib/kitchen/provisioner/habitat.rb` claims the
-> MIT License, which contradicts both `LICENSE` and the gemspec. The Apache-2.0
-> terms in `LICENSE` are the authoritative ones; the stray header is tracked
-> separately.
