@@ -25,5 +25,5 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = ">= 3.1"
 
-  s.add_dependency "test-kitchen", ">= 1.4", "< 5"
+  s.add_dependency "test-kitchen", ">= 3.0", "< 5"
 end
