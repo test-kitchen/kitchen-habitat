@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/test-kitchen/kitchen-habitat/compare/kitchen-habitat/v0.13.0...kitchen-habitat/v0.13.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* require test-kitchen 3.0 or newer ([#93](https://github.com/test-kitchen/kitchen-habitat/issues/93)) ([ddb71a0](https://github.com/test-kitchen/kitchen-habitat/commit/ddb71a03256e1a70c8604d36f2076ef35b01ed55))
+
 ## [0.13.0](https://github.com/test-kitchen/kitchen-habitat/compare/kitchen-habitat/v0.12.2...kitchen-habitat/v0.13.0) (2026-08-23)
 
 
