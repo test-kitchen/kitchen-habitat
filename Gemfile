@@ -6,7 +6,7 @@ group :test do
   gem "fakefs"
   gem "rake", ">= 11.0"
   gem "rspec", "~> 3.2"
-  gem "simplecov", "~> 0.22"
+  gem "simplecov", "~> 1.0"
 end
 
 group :docs do
