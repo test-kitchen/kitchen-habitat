@@ -241,15 +241,18 @@ module Kitchen
                 sleep 5
               done
             sudo hab pkg install #{target_pkg} --channel #{config[:channel]} --force
-            if [ -f $(sudo hab pkg path #{target_ident})/hooks/run ]
+            if [ -f "$(sudo hab pkg path #{target_ident})/hooks/run" ]
               then
                 sudo -E hab svc load #{target_ident} #{service_options} --force
                 timer=0
                 until sudo -E hab svc status | grep #{target_ident}
                   do
-                    if [$timer -gt #{config[:service_load_timeout]}]; then exit 1; fi
+                    if [ "$timer" -ge #{config[:service_load_timeout]} ]; then
+                      echo "Timed out after #{config[:service_load_timeout]}s waiting for #{target_ident} to load"
+                      exit 1
+                    fi
                     sleep 1
-                    $timer++
+                    timer=$((timer + 1))
                   done
             fi
           BASH
@@ -333,7 +336,6 @@ module Kitchen
       # @return [String] Bash source
       def linux_install_service
         <<~LINUX_SERVICE_SETUP
-          id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
           rm -rf /tmp/kitchen
           mkdir -p /tmp/kitchen/results
           #{"mkdir -p /tmp/kitchen/config" unless config[:override_package_config]}
@@ -343,19 +345,17 @@ module Kitchen
           else
             echo "Starting hab-sup service install"
             hab license accept#{install_supervisor_command("  ")}
-            if ! id -u hab > /dev/null 2>&1; then
-              echo "Adding hab user"
+            if ! getent group hab > /dev/null 2>&1; then
+              echo "Adding hab group"
               sudo -E groupadd hab
             fi
-            if ! id -g hab > /dev/null 2>&1; then
-              echo "Adding hab group"
+            if ! id -u hab > /dev/null 2>&1; then
+              echo "Adding hab user"
               sudo -E useradd -g hab hab
             fi
             echo [Unit] | sudo tee /etc/systemd/system/hab-sup.service
             echo Description=The Chef Habitat Supervisor | sudo tee -a /etc/systemd/system/hab-sup.service
-            echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service
-            echo Environment="HAB_BLDR_URL=#{config[:depot_url]}" | sudo tee -a /etc/systemd/system/hab-sup.service
-            echo Environment="HAB_LICENSE=#{config[:hab_license]}" | sudo tee -a /etc/systemd/system/hab-sup.service
+            echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service#{supervisor_environment_lines("  ")}
             echo "ExecStart=/bin/hab sup run #{supervisor_options}" | sudo tee -a /etc/systemd/system/hab-sup.service
             echo [Install] | sudo tee -a /etc/systemd/system/hab-sup.service
             echo WantedBy=default.target | sudo tee -a /etc/systemd/system/hab-sup.service
@@ -499,7 +499,14 @@ module Kitchen
           end
         end
 
-        artifact_path = Dir.glob(File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")).max_by { |f| File.mtime(f) }
+        glob = File.join(results_dir, "#{config[:package_origin]}-#{config[:package_name]}-*.hart")
+        artifact_path = Dir.glob(glob).max_by { |f| File.mtime(f) }
+        if artifact_path.nil?
+          raise UserError,
+            "No Habitat artifact matching #{File.basename(glob)} was found in #{results_dir}. " \
+            "Build the package first, or point 'results_directory' at the directory holding its .hart file."
+        end
+
         File.basename(artifact_path)
       end
 
@@ -563,11 +570,10 @@ module Kitchen
       #
       # @return [String] a package identifier such as +core/redis+
       def package_ident
-        ident = "#{config[:package_origin]}/" \
-                "#{config[:package_name]}/" \
-                "#{config[:package_version]}/" \
-                "#{config[:package_release]}".chomp("/").chomp("/")
-        @pkg_ident = ident
+        "#{config[:package_origin]}/" \
+          "#{config[:package_name]}/" \
+          "#{config[:package_version]}/" \
+          "#{config[:package_release]}".chomp("/").chomp("/")
       end
 
       # Resolves which local artifact to install, and back-fills the package
@@ -650,6 +656,29 @@ module Kitchen
         return "" unless custom_supervisor?
 
         "\n#{indent}hab pkg install #{supervisor_install_source} --force"
+      end
+
+      # The +Environment=+ lines for the generated +hab-sup+ systemd unit.
+      #
+      # Only options that were actually configured are emitted. An empty
+      # +HAB_BLDR_URL+ is not the same as an unset one -- it overrides the
+      # +hab+ CLI's own default with a URL that cannot be parsed -- so the
+      # line is omitted rather than written blank.
+      #
+      # Returned with a leading newline so it can be appended to the previous
+      # line of the heredoc, keeping the generated script free of blank lines.
+      #
+      # @param indent [String] indentation to match the surrounding script
+      # @return [String] zero or more +echo ... | sudo tee -a+ lines
+      def supervisor_environment_lines(indent = "")
+        {
+          "HAB_BLDR_URL" => config[:depot_url],
+          "HAB_LICENSE" => config[:hab_license],
+        }.reject { |_name, value| value.nil? || value.to_s.empty? }
+          .map do |name, value|
+            "\n#{indent}echo Environment=\"#{name}=#{value}\" | " \
+              "sudo tee -a /etc/systemd/system/hab-sup.service"
+          end.join
       end
 
       # Builds the flag string passed to +hab sup run+.
