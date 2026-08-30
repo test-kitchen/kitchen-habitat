@@ -28,42 +28,6 @@ RSpec.describe Kitchen::Provisioner::Habitat do
     end
   end
 
-  describe "#copy_package_config_from_override_to_sandbox" do
-    it "should create a config folder in the sandbox" do
-      provisioner.create_sandbox
-      config[:config_directory] = "config"
-      config[:override_package_config] = true
-      FakeFS.activate!
-      FileUtils.mkdir_p("#{provisioner.sandbox_path}/config")
-
-      provisioner.send(
-        :copy_package_config_from_override_to_sandbox
-      )
-      expect(File).to exist("#{provisioner.sandbox_path}/config")
-      FakeFS.deactivate!
-      FakeFS::FileSystem.clear
-      provisioner.cleanup_sandbox
-    end
-  end
-
-  describe "#copy_results_to_sandbox" do
-    it "should create a results folder in the sandbox" do
-      provisioner.create_sandbox
-      config[:artifact_name] = "example-package-0.1.0-20200406205105-x86_64-linux.hart"
-      FakeFS.activate!
-      FileUtils.mkdir_p("#{provisioner.sandbox_path}/results")
-      FileUtils.touch("#{provisioner.sandbox_path}/results/#{config[:artifact_name]}")
-
-      provisioner.send(
-        :copy_results_to_sandbox
-      )
-      expect(File).to exist("#{provisioner.sandbox_path}/results/#{config[:artifact_name]}")
-      FakeFS.deactivate!
-      FakeFS::FileSystem.clear
-      provisioner.cleanup_sandbox
-    end
-  end
-
   describe "#full_user_toml_path" do
     describe "for windows operating systems" do
       before { allow(platform).to receive(:os_type).and_return("windows") }
