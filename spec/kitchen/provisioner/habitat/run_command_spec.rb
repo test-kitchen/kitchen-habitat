@@ -31,10 +31,24 @@ RSpec.describe Kitchen::Provisioner::Habitat do
         expect(command).to include("sudo -E hab svc load core/redis")
       end
 
-      it "guards the load with a test for the package's run hook" do
+      # The supervisor accepts a run hook in either place: hooks/run from a
+      # hook template, or a run file in the package root from pkg_svc_run.
+      # Only hooks/run used to be checked, so a package built the second way
+      # -- core/redis, among many others -- was installed and then silently
+      # never loaded, and the converge reported success.
+      it "guards the load with a test for a run hook in either place" do
         config[:package_name] = "redis"
 
-        expect(provisioner.run_command).to include(%(if [ -f "$(sudo hab pkg path core/redis)/hooks/run" ]))
+        command = provisioner.run_command
+
+        expect(command).to include(%(pkg_path="$(sudo hab pkg path core/redis)"))
+        expect(command).to include(%(if [ -f "$pkg_path/hooks/run" ] || [ -f "$pkg_path/run" ]))
+      end
+
+      it "asks hab for the package path only once" do
+        config[:package_name] = "redis"
+
+        expect(provisioner.run_command.scan("hab pkg path").length).to eq(1)
       end
 
       # The timeout used to be spelled `[$timer -gt 300]` with no spaces, which
@@ -104,6 +118,15 @@ RSpec.describe Kitchen::Provisioner::Habitat do
         config[:service_load_timeout] = 42
 
         expect(provisioner.run_command).to include("if ($timer -gt 42){exit 1}")
+      end
+
+      it "guards the load with a test for a run hook in either place" do
+        config[:package_name] = "redis"
+
+        command = provisioner.run_command
+
+        expect(command).to include("$PkgPath = hab pkg path core/redis")
+        expect(command).to include(%(@("hooks\\run", "hooks\\run.ps1", "run", "run.ps1")))
       end
     end
   end
