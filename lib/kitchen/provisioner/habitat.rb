@@ -195,8 +195,10 @@ module Kitchen
       # Shell code that installs the package under test and loads it as a
       # service.
       #
-      # The package is only loaded with +hab svc load+ if it ships a +run+
-      # hook, so library packages converge cleanly without a service. After
+      # The package is only loaded with +hab svc load+ if it ships a run
+      # hook -- either +hooks/run+ or a +run+ file in the package root, both
+      # of which the supervisor accepts -- so library packages converge
+      # cleanly without a service. After
       # loading, this polls +hab svc status+ until the service appears, giving
       # up after +service_load_timeout+ seconds.
       #
@@ -223,7 +225,8 @@ module Kitchen
               $env:Path += ";C:\\ProgramData\\Habitat"
             }
             hab pkg install #{target_pkg} --channel #{config[:channel]} --force
-            if (Test-Path -Path "$(hab pkg path #{target_ident})\\hooks\\run") {
+            $PkgPath = hab pkg path #{target_ident}
+            if (@("hooks\\run", "hooks\\run.ps1", "run", "run.ps1") | Where-Object { Test-Path -Path (Join-Path $PkgPath $_) }) {
               hab svc load #{target_ident} #{service_options} --force
               $timer = 0
               Do {
@@ -241,7 +244,8 @@ module Kitchen
                 sleep 5
               done
             sudo hab pkg install #{target_pkg} --channel #{config[:channel]} --force
-            if [ -f "$(sudo hab pkg path #{target_ident})/hooks/run" ]
+            pkg_path="$(sudo hab pkg path #{target_ident})"
+            if [ -f "$pkg_path/hooks/run" ] || [ -f "$pkg_path/run" ]
               then
                 sudo -E hab svc load #{target_ident} #{service_options} --force
                 timer=0
