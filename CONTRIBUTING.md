@@ -54,22 +54,45 @@ bundle exec cookstyle -a
 ```
 
 The unit tests exercise the provisioner's generated shell and PowerShell
-directly and use [fakefs](https://github.com/fakefs/fakefs) for the file
-copying, so they neither build machines nor need the `hab` CLI installed.
+directly, so they neither build machines nor need the `hab` CLI installed.
 
-### Manual testing against a real machine
+### Integration tests
 
 The unit tests assert on the *text* of the commands the provisioner generates.
-They cannot tell you whether those commands actually work, so changes to the
-install, supervisor, or service-load logic should also be exercised for real:
+They cannot tell you whether those commands actually run, so there are Test
+Kitchen suites in `kitchen.yml` that converge for real:
+
+| Suite | What it covers |
+| --- | --- |
+| `default` | Install the CLI, start a supervisor, install `core/redis` from Builder, load it, and wait for it in `hab svc status`. |
+| `user-toml` | A `user.toml` staged from `config_directory` under a non-default `user_toml_name`, installed into `/hab/user` by `prepare_command`, plus a non-default supervisor HTTP gateway. |
+| `library-package` | `core/jq-static`, which has no `run` hook. `run_command` must install it and then leave it alone rather than waiting out `service_load_timeout`. |
+
+The assertions live in `test/integration/verify.sh` and are selected by
+`KITCHEN_SUITE`.
+
+These suites use the `exec` driver, which runs every command on the machine
+Test Kitchen is already running on. That is what makes them a real test — a
+real `hab` CLI, a real systemd unit, a real supervisor — and it also means
+**there is no isolation**. They install packages, add a `hab` user and group,
+write to `/etc/systemd/system`, and start a service. Run them on a disposable
+machine only:
 
 ```sh
-bundle exec kitchen test
+bundle exec kitchen test default-ubuntu-2404
 ```
 
-Test both a Linux and a Windows platform when you touch anything in
-`install_command`, `init_command`, or `run_command` — the two paths share
-almost no code, and it is easy to fix one while breaking the other.
+CI runs all three on a fresh Ubuntu runner per suite, so pushing a branch is
+the easiest way to exercise them.
+
+### Windows
+
+There is no automated coverage of the Windows path yet — it installs
+`core/windows-service` and edits `HabService.dll.config`, which the `exec`
+driver cannot do safely on a shared runner. Test it by hand against a Windows
+VM when you touch anything in `install_command`, `init_command`, or
+`run_command`: the two platform paths share almost no code, and it is easy to
+fix one while breaking the other.
 
 ## Documentation
 

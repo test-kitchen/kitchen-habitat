@@ -1,0 +1,6 @@
+# Staged into the sandbox as config/user.toml and installed to
+# /hab/user/redis/config/user.toml by the provisioner's prepare_command.
+# The filename deliberately is not user.toml so that user_toml_name is
+# exercised too.
+port = 6380
+protected-mode = "no"

@@ -25,3 +25,7 @@ tmp
 _yardoc
 doc/
 .rspec_status
+
+# Test Kitchen
+.kitchen/
+.kitchen.local.yml

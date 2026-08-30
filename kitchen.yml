@@ -1,0 +1,53 @@
+---
+# Integration suites for the provisioner itself.
+#
+# The `exec` driver runs every command on the machine Test Kitchen is already
+# running on, and forces the matching `exec` transport, so a converge here
+# installs the real `hab` CLI, writes a real systemd unit, starts a real
+# supervisor, and loads a real service from Builder. That is the only way to
+# find out whether the shell this provisioner generates actually runs -- the
+# unit tests can only tell you what it says.
+#
+# There is no isolation. Run these on a disposable machine (a CI runner, a
+# throwaway VM, a container), never on your workstation. See CONTRIBUTING.md.
+driver:
+  name: exec
+
+provisioner:
+  name: habitat
+  hab_license: accept
+  depot_url: https://bldr.habitat.sh
+
+verifier:
+  name: shell
+  command: bash test/integration/verify.sh
+
+platforms:
+  - name: ubuntu-2404
+
+suites:
+  # The ordinary case: install the CLI, start a supervisor, pull a package
+  # from Builder, load it, and wait for it to appear in `hab svc status`.
+  - name: default
+    provisioner:
+      package_origin: core
+      package_name: redis
+
+  # A user.toml is staged into the sandbox, uploaded, and installed into
+  # /hab/user by prepare_command, and the supervisor is given a non-default
+  # HTTP gateway address.
+  - name: user-toml
+    provisioner:
+      package_origin: core
+      package_name: redis
+      config_directory: test/fixtures/redis-config
+      user_toml_name: redis-user.toml
+      hab_sup_listen_http: 0.0.0.0:9631
+
+  # A package with no run hook. run_command must install it and then leave it
+  # alone rather than loading it and waiting out service_load_timeout.
+  - name: library-package
+    provisioner:
+      package_origin: core
+      package_name: jq-static
+      service_load_timeout: 60
