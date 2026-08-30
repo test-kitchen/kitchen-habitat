@@ -46,7 +46,6 @@ RSpec.describe Kitchen::Provisioner::Habitat do
         :linux_install_service
       )
       expected_code = <<~LINUX_SERVICE_SETUP
-        id -u hab >/dev/null 2>&1 || sudo -E useradd hab >/dev/null 2>&1
         rm -rf /tmp/kitchen
         mkdir -p /tmp/kitchen/results
         mkdir -p /tmp/kitchen/config
@@ -56,12 +55,12 @@ RSpec.describe Kitchen::Provisioner::Habitat do
         else
           echo "Starting hab-sup service install"
           hab license accept
-          if ! id -u hab > /dev/null 2>&1; then
-            echo "Adding hab user"
+          if ! getent group hab > /dev/null 2>&1; then
+            echo "Adding hab group"
             sudo -E groupadd hab
           fi
-          if ! id -g hab > /dev/null 2>&1; then
-            echo "Adding hab group"
+          if ! id -u hab > /dev/null 2>&1; then
+            echo "Adding hab user"
             sudo -E useradd -g hab hab
           fi
           echo [Unit] | sudo tee /etc/systemd/system/hab-sup.service
@@ -321,6 +320,49 @@ RSpec.describe Kitchen::Provisioner::Habitat do
         :supervisor_options
       )
       expect(supervisor_options).not_to include("--event-stream-token test")
+    end
+  end
+
+  describe "#linux_install_service" do
+    it "creates the hab group before the hab user that is placed in it" do
+      script = provisioner.send(:linux_install_service)
+
+      group_check = script.index("getent group hab")
+      user_check = script.index("id -u hab")
+
+      expect(group_check).not_to be_nil
+      expect(user_check).not_to be_nil
+      expect(group_check).to be < user_check
+      expect(script).to include("sudo -E useradd -g hab hab")
+    end
+
+    it "omits HAB_BLDR_URL when no depot_url is configured" do
+      config[:hab_license] = "accept"
+
+      script = provisioner.send(:linux_install_service)
+
+      expect(script).not_to include("HAB_BLDR_URL")
+      expect(script).to include(%(echo Environment="HAB_LICENSE=accept" | sudo tee -a /etc/systemd/system/hab-sup.service))
+    end
+
+    it "omits HAB_LICENSE when no hab_license is configured" do
+      config[:depot_url] = "https://bldr.example.com"
+
+      script = provisioner.send(:linux_install_service)
+
+      expect(script).not_to include("HAB_LICENSE")
+      expect(script).to include(%(echo Environment="HAB_BLDR_URL=https://bldr.example.com" | sudo tee -a /etc/systemd/system/hab-sup.service))
+    end
+
+    it "writes no Environment lines at all when neither is configured" do
+      script = provisioner.send(:linux_install_service)
+
+      expect(script).not_to include("Environment=")
+      expect(script).to include("echo [Service] | sudo tee -a /etc/systemd/system/hab-sup.service\n")
+    end
+
+    it "leaves no blank line behind when the Environment lines are omitted" do
+      expect(provisioner.send(:linux_install_service)).not_to match(/\n[ \t]*\n/)
     end
   end
 end

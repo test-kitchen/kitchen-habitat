@@ -192,4 +192,52 @@ RSpec.describe Kitchen::Provisioner::Habitat do
       end
     end
   end
+
+  describe "#latest_artifact_name" do
+    around do |example|
+      FakeFS.activate!
+      example.run
+      FakeFS.deactivate!
+      FakeFS::FileSystem.clear
+    end
+
+    before do
+      config[:results_directory] = "/results"
+      config[:install_latest_artifact] = true
+      config[:package_origin] = "core"
+      config[:package_name] = "redis"
+      FileUtils.mkdir_p("/results")
+    end
+
+    it "picks the most recently modified matching artifact" do
+      older = "/results/core-redis-4.0.14-20240106065001-x86_64-linux.hart"
+      newer = "/results/core-redis-4.0.14-20240206065001-x86_64-linux.hart"
+      FileUtils.touch(older, mtime: Time.now - 3600)
+      FileUtils.touch(newer, mtime: Time.now)
+
+      expect(provisioner.send(:latest_artifact_name)).to eq(File.basename(newer))
+    end
+
+    it "ignores artifacts belonging to another package" do
+      FileUtils.touch("/results/core-jq-static-1.6-20240106065001-x86_64-linux.hart")
+      FileUtils.touch("/results/core-redis-4.0.14-20240106065001-x86_64-linux.hart")
+
+      expect(provisioner.send(:latest_artifact_name)).to eq("core-redis-4.0.14-20240106065001-x86_64-linux.hart")
+    end
+
+    # This used to fall through to File.basename(nil) and blow up with
+    # "no implicit conversion of nil into String", which tells the user
+    # nothing about what went wrong or where to look.
+    it "raises a user error naming the glob and the directory when nothing matches" do
+      expect { provisioner.send(:latest_artifact_name) }
+        .to raise_error(Kitchen::UserError, /core-redis-\*\.hart.*\/results/m)
+    end
+
+    it "requires both a package_origin and a package_name" do
+      config[:package_name] = nil
+
+      expect { provisioner.send(:latest_artifact_name) }
+        .to raise_error(Kitchen::UserError, /must specify a 'package_origin' and 'package_name'/)
+    end
+  end
 end
