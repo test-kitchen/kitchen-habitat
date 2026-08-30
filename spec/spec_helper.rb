@@ -15,14 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require "simplecov"
-
-SimpleCov.start do
-  add_filter "/spec/"
-  add_group "Provisioner", "lib/kitchen/provisioner"
-  enable_coverage :branch
-end
-
 require "rspec"
 require "kitchen"
 
