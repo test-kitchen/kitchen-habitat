@@ -17,6 +17,20 @@ provisioner:
   name: habitat
   hab_license: accept
   depot_url: https://bldr.habitat.sh
+  # Pinned deliberately, and not just to keep the suites reproducible.
+  #
+  # Habitat 2.x moved the `hab` CLI and the supervisor into the `chef` origin
+  # on Builder, and that origin needs a Personal Access Token. `install.sh`
+  # with no `-v` reads the origin out of the latest manifest, gets `chef`, and
+  # dies with `[401 Unauthorized] Please check that you have specified a valid
+  # Personal Access Token` before `hab` is ever on the PATH.
+  #
+  # 1.6.1245 is the last release whose manifest points at `core`, which is
+  # still public, so `core/hab`, `core/hab-sup`, `core/hab-launcher` and the
+  # `core` packages the suites load all download unauthenticated. This also
+  # means the suites exercise the `hab_version` option rather than defaulting
+  # past it.
+  hab_version: "1.6.1245"
 
 verifier:
   name: shell

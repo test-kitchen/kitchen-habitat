@@ -71,6 +71,13 @@ Kitchen suites in `kitchen.yml` that converge for real:
 The assertions live in `test/integration/verify.sh` and are selected by
 `KITCHEN_SUITE`.
 
+The suites pin `hab_version` to `1.6.1245`. Habitat 2.x moved the `hab` CLI and
+the supervisor into the `chef` origin on Builder, which requires a Personal
+Access Token, so an unpinned `install.sh` now fails with `401 Unauthorized`
+before `hab` reaches the PATH. `1.6.1245` is the last release whose manifest
+points at the still-public `core` origin. Unpin it once the provisioner can
+pass a `HAB_AUTH_TOKEN` through and CI has one to pass.
+
 These suites use the `exec` driver, which runs every command on the machine
 Test Kitchen is already running on. That is what makes them a real test — a
 real `hab` CLI, a real systemd unit, a real supervisor — and it also means
