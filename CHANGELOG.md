@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.2](https://github.com/test-kitchen/kitchen-habitat/compare/kitchen-habitat/v0.13.1...kitchen-habitat/v0.13.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* load packages whose run hook is a run file in the package root ([#103](https://github.com/test-kitchen/kitchen-habitat/issues/103)) ([aac0970](https://github.com/test-kitchen/kitchen-habitat/commit/aac0970f1ee6faa58575d7b5c8f29222ec29c387))
+* repair the broken shell in the generated Linux converge scripts ([#97](https://github.com/test-kitchen/kitchen-habitat/issues/97)) ([31cf166](https://github.com/test-kitchen/kitchen-habitat/commit/31cf166f801d2ded86de549c33f5e4b7b922945b))
+
 ## [0.13.1](https://github.com/test-kitchen/kitchen-habitat/compare/kitchen-habitat/v0.13.0...kitchen-habitat/v0.13.1) (2026-08-24)
 
 
